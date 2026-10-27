@@ -13,3 +13,7 @@ npm run start:dev
 ```
 
 Incluye registro, login JWT, guards por roles, integración con API Key y respuestas uniformes.
+
+## Swagger
+
+Documentación en http://localhost:3000/docs. Permite probar la API con JWT y API Key.
