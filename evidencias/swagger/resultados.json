@@ -1,0 +1,139 @@
+{
+  "source": "Swagger UI: Try it out / Execute",
+  "oauthIncluded": false,
+  "credentialsRedacted": true,
+  "results": [
+    {
+      "capture": "01-login-admin.png",
+      "operation": "AuthController_login",
+      "status": 200,
+      "path": "/auth/login"
+    },
+    {
+      "capture": "02-perfil-admin.png",
+      "operation": "AuthController_me",
+      "status": 200,
+      "path": "/auth/me"
+    },
+    {
+      "capture": "03-admin-registra-tecnico.png",
+      "operation": "AuthController_registerUser",
+      "status": 201,
+      "path": "/auth/users"
+    },
+    {
+      "capture": "04-crear-vehiculo.png",
+      "operation": "VehiclesController_create",
+      "status": 201,
+      "path": "/vehicles"
+    },
+    {
+      "capture": "05-placa-duplicada.png",
+      "operation": "VehiclesController_create",
+      "status": 409,
+      "path": "/vehicles"
+    },
+    {
+      "capture": "06-crear-mecanico-vinculado.png",
+      "operation": "MechanicsController_create",
+      "status": 201,
+      "path": "/mechanics"
+    },
+    {
+      "capture": "07-crear-taller.png",
+      "operation": "WorkshopsController_create",
+      "status": 201,
+      "path": "/workshops"
+    },
+    {
+      "capture": "08-programar-mantenimiento.png",
+      "operation": "MaintenancesController_create",
+      "status": 201,
+      "path": "/maintenances"
+    },
+    {
+      "capture": "09-rechazar-segundo-activo-vehiculo.png",
+      "operation": "MaintenancesController_create",
+      "status": 409,
+      "path": "/maintenances"
+    },
+    {
+      "capture": "10-login-tecnico.png",
+      "operation": "AuthController_login",
+      "status": 200,
+      "path": "/auth/login"
+    },
+    {
+      "capture": "11-tecnico-sus-mantenimientos.png",
+      "operation": "MaintenancesController_mine",
+      "status": 200,
+      "path": "/maintenances/mine"
+    },
+    {
+      "capture": "12-tecnico-sin-permiso-admin.png",
+      "operation": "VehiclesController_create",
+      "status": 403,
+      "path": "/vehicles"
+    },
+    {
+      "capture": "13-iniciar-mantenimiento.png",
+      "operation": "MaintenancesController_updateStatus",
+      "status": 200,
+      "path": "/maintenances/5/status"
+    },
+    {
+      "capture": "14-rechazar-cancelar-en-proceso.png",
+      "operation": "MaintenancesController_updateStatus",
+      "status": 409,
+      "path": "/maintenances/5/status"
+    },
+    {
+      "capture": "15-completar-mantenimiento.png",
+      "operation": "MaintenancesController_updateStatus",
+      "status": 200,
+      "path": "/maintenances/5/status"
+    },
+    {
+      "capture": "16-rechazar-reabrir-completado.png",
+      "operation": "MaintenancesController_updateStatus",
+      "status": 409,
+      "path": "/maintenances/5/status"
+    },
+    {
+      "capture": "17-historial-vehiculo.png",
+      "operation": "MaintenancesController_history",
+      "status": 200,
+      "path": "/maintenances/vehicle/11/history"
+    },
+    {
+      "capture": "18-auditoria-mantenimiento.png",
+      "operation": "MaintenancesController_audits",
+      "status": 200,
+      "path": "/maintenances/5/audits"
+    },
+    {
+      "capture": "19-validacion-datos.png",
+      "operation": "VehiclesController_create",
+      "status": 400,
+      "path": "/vehicles"
+    },
+    {
+      "capture": "20-registro-sin-autenticacion.png",
+      "operation": "AuthController_register",
+      "status": 401,
+      "path": "/auth/register"
+    },
+    {
+      "capture": "21-integracion-sin-api-key.png",
+      "operation": "IntegrationsController_status",
+      "status": 401,
+      "path": "/integrations/status"
+    },
+    {
+      "capture": "22-integracion-con-api-key.png",
+      "operation": "IntegrationsController_status",
+      "status": 200,
+      "path": "/integrations/status"
+    }
+  ]
+}
