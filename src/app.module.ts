@@ -1,3 +1,4 @@
+import { MaintenancesModule } from './maintenances/maintenances.module.js';
 import { WorkshopsModule } from './workshops/workshops.module.js';
 import { MechanicsModule } from './mechanics/mechanics.module.js';
 import { VehiclesModule } from './vehicles/vehicles.module.js';
@@ -20,6 +21,7 @@ import { DatabaseModule } from './database/database.module.js';
     VehiclesModule,
     MechanicsModule,
     WorkshopsModule,
+    MaintenancesModule,
   ],
   controllers: [IntegrationsController],
 })

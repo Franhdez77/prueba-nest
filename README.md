@@ -5,10 +5,11 @@ API REST de mantenimiento de flotas con NestJS, TypeScript, JWT, TypeORM y Postg
 ## Estado de implementación
 
 Disponibles: autenticación, autorización por roles, API Key, respuestas y errores
-uniformes, Swagger, vehículos, mecánicos y talleres.
+uniformes, Swagger, vehículos, mecánicos, talleres, mantenimientos, historiales
+y auditoría de creación y cambios de estado.
 
-Pendientes: mantenimientos e historiales, auditorías, completar el seeder,
-dump SQL y evidencias de Postman o Swagger. Nombre y clan del coder: pendientes.
+Pendientes de entrega: dump SQL, evidencias de Postman o Swagger y publicación
+del repositorio actualizado. Nombre y clan del coder: pendientes.
 
 ## Ejecución con Docker
 
@@ -103,14 +104,13 @@ Actualmente crea, sin duplicar ni sobrescribir registros existentes:
 - Un administrador: `admin@fleetcore.test`.
 - Dos técnicos: `tecnico1@fleetcore.test` y `tecnico2@fleetcore.test`.
 - Tres mecánicos: dos activos vinculados a los técnicos y uno inactivo.
-- Tres vehículos: dos `AVAILABLE` y uno `INACTIVE`.
+- Cuatro vehículos: dos `AVAILABLE`, uno `INACTIVE` y uno `IN_MAINTENANCE`.
 - Dos talleres: uno `ACTIVE` y uno `INACTIVE`.
+- Un mantenimiento `IN_PROGRESS` para el cuarto vehículo.
+- Un mantenimiento `COMPLETED` con datos de cierre e historial.
+- Auditoría de los estados de esos mantenimientos.
 
 La contraseña de las tres cuentas nuevas es `FleetCore123!`.
-
-**El seeder todavía está incompleto respecto al PDF:** faltan
-el cuarto vehículo con mantenimiento `IN_PROGRESS` y un mantenimiento `COMPLETED`.
-Se añadirán al implementar esos módulos.
 
 ## Autenticación
 
@@ -237,10 +237,9 @@ dos técnicos exigidos. Una cuenta no se vincula a varios mecánicos. No existe 
 relación permanente con un taller. El correo se normaliza a minúsculas y es único.
 La inactivación conserva el registro.
 
-Las reglas de asignación y horarios quedan pendientes del módulo de mantenimientos.
-Se aplicarán las aclaraciones del usuario: varios pendientes sin cruces, fecha y
-hora de inicio y fin, un solo mantenimiento en ejecución por mecánico y cancelación
-definitiva.
+Los mantenimientos usan el vínculo con el usuario técnico para limitar sus
+consultas y cambios a sus asignaciones. Los horarios se validan entre todos los
+talleres.
 
 ## Talleres
 
@@ -261,8 +260,84 @@ Todas las rutas requieren JWT. Solo `ADMIN` puede registrar y cambiar estados.
 ```
 
 La inactivación conserva el registro. El seeder incluye Taller Norte activo y
-Taller Centro inactivo. La validación que impide asignar talleres inexistentes o
-inactivos se implementará al crear mantenimientos.
+Taller Centro inactivo. No se pueden programar ni iniciar mantenimientos con un taller inexistente o
+inactivo.
+
+## Mantenimientos e historial
+
+Todas las rutas requieren JWT. `ADMIN` programa y consulta todos los mantenimientos.
+`TECHNICIAN` consulta y actualiza solo los que tiene asignados mediante su mecánico.
+Las respuestas incluyen los datos del vehículo, mecánico y taller.
+
+| Método | Ruta | Operación |
+| --- | --- | --- |
+| POST | `/maintenances` | Programar mantenimiento (ADMIN) |
+| GET | `/maintenances` | Consultar con filtros `status`, `type`, `active`, `vehicleId`, `mechanicId` |
+| GET | `/maintenances/mine` | Consultar asignaciones del técnico autenticado |
+| GET | `/maintenances/:id` | Consultar una intervención |
+| PATCH | `/maintenances/:id/status` | Cambiar estado (ADMIN o técnico asignado) |
+| GET | `/maintenances/vehicle/:vehicleId/history` | Historial del vehículo, en todos sus estados |
+| GET | `/maintenances/mechanic/:mechanicId` | Intervenciones del mecánico |
+| GET | `/maintenances/:id/audits` | Consultar creación y cambios de estado (ADMIN) |
+
+Ejemplo para programar (sustituye los UUID por recursos activos):
+
+```json
+{
+  "type": "PREVENTIVE",
+  "description": "Cambio de aceite y filtros",
+  "mileage": 45000,
+  "scheduledStart": "2026-11-01T07:30:00-05:00",
+  "scheduledEnd": "2026-11-01T09:00:00-05:00",
+  "vehicleId": "UUID_DEL_VEHICULO",
+  "mechanicId": "UUID_DEL_MECANICO",
+  "workshopId": "UUID_DEL_TALLER"
+}
+```
+
+Tipos: `PREVENTIVE` y `CORRECTIVE`. El estado inicial es `SCHEDULED`.
+Las fechas incluyen zona horaria y la hora de fin debe ser posterior al inicio.
+El mecánico puede tener varios pendientes sin cruces, incluso en distintos
+talleres. Un horario que termina a las 09:00 permite otro que comienza a las 09:00.
+Un vehículo solo puede tener un mantenimiento `SCHEDULED` o `IN_PROGRESS`.
+El kilometraje inicial no puede ser inferior al actual del vehículo.
+
+Transiciones permitidas:
+
+- `SCHEDULED` → `IN_PROGRESS` o `CANCELLED`.
+- `IN_PROGRESS` → `COMPLETED`.
+- `COMPLETED` y `CANCELLED` son definitivos.
+
+No se permite cancelar una intervención en proceso. Al iniciar, el vehículo pasa
+a `IN_MAINTENANCE`. Cada mecánico solo puede ejecutar una intervención a la vez,
+aunque tenga otras programadas. La cancelación de un pendiente conserva el estado
+del vehículo y libera la reserva del horario y del vehículo.
+
+Para iniciar, envía `{"status":"IN_PROGRESS"}`. Para completar:
+
+```json
+{
+  "status": "COMPLETED",
+  "workPerformed": "Aceite y filtros reemplazados",
+  "finalCost": 250000,
+  "finishedAt": "2026-11-01T09:00:00-05:00",
+  "finalMileage": 45100
+}
+```
+
+Los cuatro campos de cierre son obligatorios; la fecha final no puede ser anterior
+al inicio real y el kilometraje no puede retroceder. Al completar, el vehículo
+queda `AVAILABLE` con el kilometraje final. El costo admite dos decimales y se
+devuelve como cadena decimal para conservar precisión.
+
+Las reservas y transiciones usan transacciones y bloqueos de filas; PostgreSQL
+refuerza la unicidad del mantenimiento activo por vehículo y del que está en
+proceso por mecánico. La auditoría se guarda dentro de la misma transacción.
+Los conflictos devuelven `409` y los datos inválidos, `400`.
+
+El seeder puede repetirse: no reabre ni sobrescribe mantenimientos ya existentes.
+El técnico uno tiene el mantenimiento de ejemplo en proceso; usa el técnico dos
+u otro mecánico activo para probar una ejecución adicional.
 
 ## Comandos y pruebas
 

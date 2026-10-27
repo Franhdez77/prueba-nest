@@ -1,3 +1,6 @@
+import { Maintenance } from '../maintenances/maintenance.entity.js';
+import { MaintenanceAudit } from '../maintenances/maintenance-audit.entity.js';
+import { MaintenanceStatus, MaintenanceType } from '../maintenances/maintenance.enums.js';
 import { Workshop } from '../workshops/workshop.entity.js';
 import { WorkshopStatus } from '../workshops/workshop-status.enum.js';
 import dataSource from './data-source.js';
@@ -52,8 +55,55 @@ try {
         await vehicles.save(vehicles.create({ ...definition, brand: 'Chevrolet', model: 'NPR', year: 2024, mileage: 45000 }));
       }
     }
+    const activeVehicleId = '50000000-0000-4000-8000-000000000004';
+    if (!await vehicles.existsBy({ id: activeVehicleId })) {
+      await vehicles.save(vehicles.create({
+        id: activeVehicleId, plate: 'JKL012', brand: 'Chevrolet', model: 'NPR',
+        year: 2024, mileage: 60000, status: VehicleStatus.IN_MAINTENANCE,
+      }));
+    }
+    const mechanicOne = await mechanics.findOneByOrFail({ email: 'tecnico1@fleetcore.test' });
+    const mechanicTwo = await mechanics.findOneByOrFail({ email: 'tecnico2@fleetcore.test' });
+    const historyVehicle = await vehicles.findOneByOrFail({ plate: 'DEF456' });
+    const maintenances = manager.getRepository(Maintenance);
+    const audits = manager.getRepository(MaintenanceAudit);
+    const samples = [
+      {
+        id: '60000000-0000-4000-8000-000000000001', vehicleId: activeVehicleId,
+        mechanicId: mechanicOne.id, workshopId: '40000000-0000-4000-8000-000000000001',
+        type: MaintenanceType.CORRECTIVE, description: 'Revisión del sistema de frenos',
+        mileage: 60000, scheduledStart: new Date('2026-10-27T07:30:00-05:00'),
+        scheduledEnd: new Date('2026-10-27T09:00:00-05:00'),
+        startedAt: new Date('2026-10-27T07:30:00-05:00'), status: MaintenanceStatus.IN_PROGRESS,
+      },
+      {
+        id: '60000000-0000-4000-8000-000000000002', vehicleId: historyVehicle.id,
+        mechanicId: mechanicTwo.id, workshopId: '40000000-0000-4000-8000-000000000001',
+        type: MaintenanceType.PREVENTIVE, description: 'Cambio de aceite y filtros',
+        mileage: 44000, scheduledStart: new Date('2026-10-20T07:30:00-05:00'),
+        scheduledEnd: new Date('2026-10-20T09:00:00-05:00'),
+        startedAt: new Date('2026-10-20T07:30:00-05:00'), status: MaintenanceStatus.COMPLETED,
+        workPerformed: 'Aceite y filtros reemplazados', finalCost: '250000.00',
+        finishedAt: new Date('2026-10-20T09:00:00-05:00'), finalMileage: 45000,
+      },
+    ];
+    for (const sample of samples) {
+      if (await maintenances.existsBy({ id: sample.id })) continue;
+      await maintenances.save(maintenances.create(sample));
+      const transitions: Array<[MaintenanceStatus | null, MaintenanceStatus, Date]> = [
+        [null, MaintenanceStatus.SCHEDULED, new Date(sample.scheduledStart.getTime() - 60000)],
+        [MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS, sample.startedAt],
+      ];
+      if (sample.status === MaintenanceStatus.COMPLETED && sample.finishedAt) {
+        transitions.push([MaintenanceStatus.IN_PROGRESS, MaintenanceStatus.COMPLETED, sample.finishedAt]);
+      }
+      for (const [fromStatus, toStatus, createdAt] of transitions) {
+        await audits.save(audits.create({ maintenanceId: sample.id, actorId: created[0].id, fromStatus, toStatus, createdAt }));
+      }
+    }
+
   });
-  console.log('Seed ejecutado. Pendientes mantenimientos para completar los datos del enunciado.');
+  console.log('Seed ejecutado: usuarios, mecánicos, talleres, vehículos, mantenimientos e historial.');
 } finally {
   await dataSource.destroy();
 }
