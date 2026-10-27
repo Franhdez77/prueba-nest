@@ -1,3 +1,4 @@
+import { MechanicsModule } from './mechanics/mechanics.module.js';
 import { VehiclesModule } from './vehicles/vehicles.module.js';
 import { IntegrationsController } from './integrations/integrations.controller.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -16,6 +17,7 @@ import { DatabaseModule } from './database/database.module.js';
     DatabaseModule,
     AuthModule,
     VehiclesModule,
+    MechanicsModule,
   ],
   controllers: [IntegrationsController],
 
