@@ -10,7 +10,47 @@ uniformes, Swagger, vehículos y mecánicos.
 Pendientes: talleres, mantenimientos e historiales, auditorías, completar el seeder,
 dump SQL y evidencias de Postman o Swagger. Nombre y clan del coder: pendientes.
 
-## Instalación
+## Ejecución con Docker
+
+Requiere Docker y Docker Compose. No necesitas instalar Node.js ni PostgreSQL
+para ejecutar los contenedores.
+
+```bash
+# Solo si aún no existe .env:
+cp .env.example .env
+# Configura DB_PASSWORD, JWT_SECRET y API_KEY en .env.
+docker compose up --build -d --wait
+docker compose exec api npm run seed:prod
+```
+
+Swagger: **http://localhost:3000/docs** (o el puerto `PORT` de `.env`).
+
+Compose crea la base y el usuario definidos en `.env`. La API espera a que
+PostgreSQL esté disponible y ejecuta las migraciones antes de iniciar. El seeder
+se ejecuta explícitamente con el comando anterior y puede repetirse sin duplicar.
+
+Dentro de los contenedores la API usa `DB_HOST=postgres` y `DB_PORT=5432`;
+Compose establece esos valores aunque `.env` tenga `localhost` para ejecución
+local. PostgreSQL se comunica por una red interna y no publica su puerto al equipo.
+Los datos permanecen en el volumen `postgres_data`.
+
+```bash
+docker compose ps
+docker compose logs -f api
+docker compose logs -f postgres
+docker compose down
+```
+
+`docker compose down` conserva los datos. No agregues `-v` si quieres mantenerlos.
+Las credenciales de inicialización de PostgreSQL se aplican al crear el volumen;
+cambiar `DB_PASSWORD` después requiere cambiar también la contraseña en la base.
+
+Si Docker apunta a Desktop y ese motor está apagado, pero tienes Docker Engine
+activo, usa `docker --context default compose` en lugar de `docker compose` en
+los comandos anteriores. Si otro proceso ocupa el puerto de la API, detenlo o
+cambia `PORT` en `.env`.
+
+## Instalación sin Docker
 
 Requisitos de ejecución: Node.js 24, npm y PostgreSQL.
 
