@@ -1,3 +1,4 @@
+import { WorkshopsModule } from './workshops/workshops.module.js';
 import { MechanicsModule } from './mechanics/mechanics.module.js';
 import { VehiclesModule } from './vehicles/vehicles.module.js';
 import { IntegrationsController } from './integrations/integrations.controller.js';
@@ -18,8 +19,8 @@ import { DatabaseModule } from './database/database.module.js';
     AuthModule,
     VehiclesModule,
     MechanicsModule,
+    WorkshopsModule,
   ],
   controllers: [IntegrationsController],
-
 })
 export class AppModule {}

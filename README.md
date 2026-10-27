@@ -5,9 +5,9 @@ API REST de mantenimiento de flotas con NestJS, TypeScript, JWT, TypeORM y Postg
 ## Estado de implementación
 
 Disponibles: autenticación, autorización por roles, API Key, respuestas y errores
-uniformes, Swagger, vehículos y mecánicos.
+uniformes, Swagger, vehículos, mecánicos y talleres.
 
-Pendientes: talleres, mantenimientos e historiales, auditorías, completar el seeder,
+Pendientes: mantenimientos e historiales, auditorías, completar el seeder,
 dump SQL y evidencias de Postman o Swagger. Nombre y clan del coder: pendientes.
 
 ## Ejecución con Docker
@@ -104,10 +104,11 @@ Actualmente crea, sin duplicar ni sobrescribir registros existentes:
 - Dos técnicos: `tecnico1@fleetcore.test` y `tecnico2@fleetcore.test`.
 - Tres mecánicos: dos activos vinculados a los técnicos y uno inactivo.
 - Tres vehículos: dos `AVAILABLE` y uno `INACTIVE`.
+- Dos talleres: uno `ACTIVE` y uno `INACTIVE`.
 
 La contraseña de las tres cuentas nuevas es `FleetCore123!`.
 
-**El seeder todavía está incompleto respecto al PDF:** faltan los dos talleres,
+**El seeder todavía está incompleto respecto al PDF:** faltan
 el cuarto vehículo con mantenimiento `IN_PROGRESS` y un mantenimiento `COMPLETED`.
 Se añadirán al implementar esos módulos.
 
@@ -240,6 +241,28 @@ Las reglas de asignación y horarios quedan pendientes del módulo de mantenimie
 Se aplicarán las aclaraciones del usuario: varios pendientes sin cruces, fecha y
 hora de inicio y fin, un solo mantenimiento en ejecución por mecánico y cancelación
 definitiva.
+
+## Talleres
+
+Todas las rutas requieren JWT. Solo `ADMIN` puede registrar y cambiar estados.
+
+| Método | Ruta | Operación |
+| --- | --- | --- |
+| POST | `/workshops` | Registrar con nombre y dirección; estado inicial `ACTIVE` |
+| GET | `/workshops` | Listar únicamente talleres activos |
+| GET | `/workshops/:id` | Consultar un taller activo o inactivo por UUID |
+| PATCH | `/workshops/:id/status` | Activar o inactivar con `status: ACTIVE` o `INACTIVE` |
+
+```json
+{
+  "name": "Taller Norte",
+  "address": "Calle 50 # 20-30"
+}
+```
+
+La inactivación conserva el registro. El seeder incluye Taller Norte activo y
+Taller Centro inactivo. La validación que impide asignar talleres inexistentes o
+inactivos se implementará al crear mantenimientos.
 
 ## Comandos y pruebas
 

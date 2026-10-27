@@ -1,3 +1,5 @@
+import { Workshop } from '../workshops/workshop.entity.js';
+import { WorkshopStatus } from '../workshops/workshop-status.enum.js';
 import dataSource from './data-source.js';
 import { hashPassword } from '../auth/password.js';
 import { User } from '../users/user.entity.js';
@@ -31,6 +33,15 @@ try {
     ]) {
       if (!await mechanics.existsBy({ email: definition.email })) await mechanics.save(mechanics.create(definition));
     }
+    const workshops = manager.getRepository(Workshop);
+    for (const definition of [
+      { id: '40000000-0000-4000-8000-000000000001', name: 'Taller Norte', address: 'Calle 50 # 20-30', status: WorkshopStatus.ACTIVE },
+      { id: '40000000-0000-4000-8000-000000000002', name: 'Taller Centro', address: 'Carrera 10 # 15-20', status: WorkshopStatus.INACTIVE },
+    ]) {
+      if (!await workshops.existsBy({ id: definition.id })) {
+        await workshops.save(workshops.create(definition));
+      }
+    }
     const vehicles = manager.getRepository(Vehicle);
     for (const definition of [
       { plate: 'ABC123', status: VehicleStatus.AVAILABLE },
@@ -42,7 +53,7 @@ try {
       }
     }
   });
-  console.log('Seed ejecutado. Pendientes talleres y mantenimientos para completar los datos del enunciado.');
+  console.log('Seed ejecutado. Pendientes mantenimientos para completar los datos del enunciado.');
 } finally {
   await dataSource.destroy();
 }
