@@ -348,15 +348,3 @@ The Docker runtime image contains production dependencies only; run Jest from
 the local development installation. Docker's PostgreSQL port is internal, so
 local HTTP tests require a separately reachable test database.
 
-## 8. Delivery checklist
-
-- Coder name and clan: included above.
-- Installation, environment, seeder, test credentials, and Swagger URL: documented.
-- `.env.example`: included.
-- Docker setup and Jest coverage above 40%: implemented and tested.
-- Database SQL dump for Moodle: pending.
-- Postman collection or Swagger screenshots: pending; Jest results do not replace them.
-- Publish the latest commits to the public repository: pending.
-
-The requirements review matrix is available in [docs/revision-final.md](docs/revision-final.md).
-OAuth 2.0 is an optional extra and is not implemented.
