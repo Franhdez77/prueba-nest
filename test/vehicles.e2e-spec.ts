@@ -41,7 +41,7 @@ describe('Vehículos (e2e)', () => {
     db = app.get(DataSource);
     const jwt = app.get(JwtService);
     const users = db.getRepository(User);
-    // No se inicia sesión: esta suite comprueba vehículos y la autorización por rol.
+    // Issue fixture tokens directly; this suite tests vehicles and role authorization.
     const admin = await users.save(
       users.create({
         name: 'Admin prueba',

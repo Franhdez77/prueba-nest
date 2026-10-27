@@ -10,7 +10,7 @@ import { Role } from '../users/role.enum.js';
 const id = '10000000-0000-4000-8000-000000000001';
 const jwt = new JwtService({ secret: 'test-secret-used-only-by-unit-tests', signOptions: { expiresIn: '1h' } });
 
-// Solo se sustituye persistencia; hashing y JWT se ejecutan realmente.
+// Replace only persistence; exercise the real password hashing and JWT implementations.
 describe('AuthService', () => {
   let stored: User;
   let service: AuthService;

@@ -40,7 +40,7 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
     API_KEY: text('API_KEY'),
   };
   if (env.JWT_SECRET && env.JWT_SECRET.length < 32) invalid.push('JWT_SECRET');
-  // No incluye valores para evitar exponer contraseñas en los errores de arranque.
+  // Report variable names only to avoid exposing credentials in startup errors.
   if (invalid.length) throw new Error(`Variables de entorno inválidas: ${invalid.join(', ')}`);
   return env;
 }

@@ -1,41 +1,76 @@
 # FleetCore
 
-API REST de mantenimiento de flotas con NestJS, TypeScript, JWT, TypeORM y PostgreSQL.
+REST API for managing vehicle fleet maintenance, built with NestJS, TypeScript,
+JWT, TypeORM, and PostgreSQL. It includes role-based access, external API Key
+authentication, vehicle and mechanic management, workshops, maintenance scheduling,
+status transitions, vehicle history, and maintenance audit records.
 
-## Estado de implementación
+## Coder information
 
-Disponibles: autenticación, autorización por roles, API Key, respuestas y errores
-uniformes, Swagger, vehículos, mecánicos, talleres, mantenimientos, historiales
-y auditoría de creación y cambios de estado.
+- **Name:** Francisco Hernandez
+- **Clan:** Node/Nest AN
+- **Repository:** https://github.com/Franhdez77/prueba-nest
 
-Pendientes de entrega: dump SQL, evidencias de Postman o Swagger y publicación
-del repositorio actualizado. Nombre y clan del coder: pendientes.
-
-La matriz de criterios y resultados está en [Revisión final](docs/revision-final.md).
-
-## Ejecución con Docker
-
-Requiere Docker y Docker Compose. No necesitas instalar Node.js ni PostgreSQL
-para ejecutar los contenedores.
+## 1. Get the project
 
 ```bash
-# Solo si aún no existe .env:
+git clone https://github.com/Franhdez77/prueba-nest.git
+cd prueba-nest
+```
+
+If you already have a local copy, run the following commands from its root folder.
+Choose either Docker or local installation.
+
+## 2. Configure environment variables
+
+Create the environment file if it does not exist:
+
+```bash
 cp .env.example .env
-# Configura DB_PASSWORD, JWT_SECRET y API_KEY en .env.
+```
+
+Edit `.env` before starting the application:
+
+| Variable | Purpose | Example/default |
+| --- | --- | --- |
+| `NODE_ENV` | Application environment | `development` |
+| `PORT` | API port on the host | `3000` |
+| `DB_HOST` | PostgreSQL host for local execution | `localhost` |
+| `DB_PORT` | PostgreSQL port for local execution | `5432` |
+| `DB_USERNAME` | Database user | `fleetcore` |
+| `DB_PASSWORD` | Database password | Match your PostgreSQL credentials |
+| `DB_DATABASE` | Database name | `fleetcore` |
+| `JWT_SECRET` | JWT signing secret, at least 32 characters | Replace the example value |
+| `API_KEY` | External integration credential | Replace the example value |
+
+`.env.example` contains fictitious values. `.env` is excluded from Git and from
+the Docker build context. The application validates its environment on startup.
+
+## 3. Start with Docker
+
+**Requirements:** Docker Engine or Docker Desktop, and Docker Compose.
+Node.js and PostgreSQL do not need to be installed on the host for this option.
+
+```bash
 docker compose up --build -d --wait
+```
+
+Compose creates PostgreSQL using `DB_USERNAME`, `DB_PASSWORD`, and `DB_DATABASE`.
+The API waits until PostgreSQL is healthy, runs the database migrations, and
+starts automatically. You do not need to run migrations manually before Docker.
+
+Inside the containers, Compose sets `DB_HOST=postgres`, `DB_PORT=5432`, and
+`PORT=3000`. The host's `PORT` value controls the published API port.
+PostgreSQL uses an internal network and a persistent volume; its port is not
+published to the host.
+
+Load the sample data after startup:
+
+```bash
 docker compose exec api npm run seed:prod
 ```
 
-Swagger: **http://localhost:3000/docs** (o el puerto `PORT` de `.env`).
-
-Compose crea la base y el usuario definidos en `.env`. La API espera a que
-PostgreSQL esté disponible y ejecuta las migraciones antes de iniciar. El seeder
-se ejecuta explícitamente con el comando anterior y puede repetirse sin duplicar.
-
-Dentro de los contenedores la API usa `DB_HOST=postgres` y `DB_PORT=5432`;
-Compose establece esos valores aunque `.env` tenga `localhost` para ejecución
-local. PostgreSQL se comunica por una red interna y no publica su puerto al equipo.
-Los datos permanecen en el volumen `postgres_data`.
+Useful commands:
 
 ```bash
 docker compose ps
@@ -44,354 +79,284 @@ docker compose logs -f postgres
 docker compose down
 ```
 
-`docker compose down` conserva los datos. No agregues `-v` si quieres mantenerlos.
-Las credenciales de inicialización de PostgreSQL se aplican al crear el volumen;
-cambiar `DB_PASSWORD` después requiere cambiar también la contraseña en la base.
+`docker compose down` preserves the database volume. Adding `-v` deletes its data.
+Changing `DB_PASSWORD` after the volume has been initialized also requires updating
+the password in PostgreSQL; changing the environment file alone does not change it.
 
-Si Docker apunta a Desktop y ese motor está apagado, pero tienes Docker Engine
-activo, usa `docker --context default compose` en lugar de `docker compose` en
-los comandos anteriores. Si otro proceso ocupa el puerto de la API, detenlo o
-cambia `PORT` en `.env`.
-
-## Instalación sin Docker
-
-Requisitos de ejecución: Node.js 24, npm y PostgreSQL.
+If Docker Desktop is unavailable but the system Docker Engine is running, replace
+`docker compose` with `docker --context default compose` in these commands.
+If port 3000 is occupied, set `PORT=3001` in `.env`, or use a temporary override:
 
 ```bash
-npm install
-cp .env.example .env
-# Ajusta .env a tu instalación de PostgreSQL.
-npm run migration:run
-npm run seed
-npm run start:dev
+PORT=3001 docker --context default compose up --build -d --wait
 ```
 
-La base indicada en `.env` debe existir y el usuario debe tener permisos para crear
-sus tablas. Si necesitas crearla, desde una sesión administradora de PostgreSQL:
+With that override, Swagger is available at **http://localhost:3001/docs**.
+
+## 4. Start without Docker
+
+**Requirements:** Node.js 24, npm, and a running PostgreSQL instance.
+
+Install dependencies:
+
+```bash
+npm ci
+```
+
+Create the database and user if necessary. Run the following SQL from an
+administrator session connected to your local PostgreSQL instance:
 
 ```sql
 CREATE USER fleetcore WITH PASSWORD 'fleetcore_local_example';
 CREATE DATABASE fleetcore OWNER fleetcore;
 ```
 
-La contraseña anterior es un ejemplo local. `.env` está excluido de Git;
-`.env.example` contiene claves ficticias. Cambia los valores de ejemplo antes de
-usar la aplicación fuera del entorno de pruebas.
+Use the same database credentials in `.env`. The password above is only a local
+example. The database must exist before running migrations.
 
-## Variables de entorno
-
-| Variable | Uso |
-| --- | --- |
-| `NODE_ENV` | `development`, `test` o `production` |
-| `PORT` | Puerto HTTP; por defecto 3000 |
-| `DB_HOST` | Dirección de PostgreSQL |
-| `DB_PORT` | Puerto de PostgreSQL; por defecto 5432 |
-| `DB_USERNAME` | Usuario de la base |
-| `DB_PASSWORD` | Contraseña de la base |
-| `DB_DATABASE` | Nombre de la base |
-| `JWT_SECRET` | Secreto de firma JWT de al menos 32 caracteres |
-| `API_KEY` | Credencial de integración externa |
-
-La configuración se valida al iniciar. Las tablas se administran con migraciones
-TypeORM; `synchronize` está desactivado.
-
-## Seeder y credenciales de prueba
+Apply migrations, load sample data, and start the development server:
 
 ```bash
+npm run migration:run
 npm run seed
+npm run start:dev
 ```
 
-Actualmente crea, sin duplicar ni sobrescribir registros existentes:
+For a compiled local build:
 
-- Un administrador: `admin@fleetcore.test`.
-- Dos técnicos: `tecnico1@fleetcore.test` y `tecnico2@fleetcore.test`.
-- Tres mecánicos: dos activos vinculados a los técnicos y uno inactivo.
-- Cuatro vehículos: dos `AVAILABLE`, uno `INACTIVE` y uno `IN_MAINTENANCE`.
-- Dos talleres: uno `ACTIVE` y uno `INACTIVE`.
-- Un mantenimiento `IN_PROGRESS` para el cuarto vehículo.
-- Un mantenimiento `COMPLETED` con datos de cierre e historial.
-- Auditoría de los estados de esos mantenimientos.
+```bash
+npm run build
+npm run start:prod
+```
 
-La contraseña de las tres cuentas nuevas es `FleetCore123!`.
+TypeORM's `synchronize` option is disabled. Apply migrations before starting the
+application locally. For PostgreSQL connection errors, check that the server is
+running on `DB_HOST:DB_PORT` and that the credentials match `.env`.
 
-## Autenticación
+## 5. Seeder and test credentials
 
-| Método | Ruta | Acceso |
+Run the seeder with one command:
+
+```bash
+# Local execution:
+npm run seed
+
+# Docker execution:
+docker compose exec api npm run seed:prod
+```
+
+Running it again does not duplicate records, overwrite existing data, or reopen
+finished maintenance records.
+
+| Role | Email | Password |
 | --- | --- | --- |
-| POST | `/auth/register` | Público; registra `TECHNICIAN` |
-| POST | `/auth/users` | JWT y ADMIN; registra cuentas ADMIN o TECHNICIAN |
-| POST | `/auth/login` | Público; devuelve JWT válido por una hora |
-| GET | `/auth/me` | JWT; consulta del usuario actual |
+| `ADMIN` | `admin@fleetcore.test` | `FleetCore123!` |
+| `TECHNICIAN` | `tecnico1@fleetcore.test` | `FleetCore123!` |
+| `TECHNICIAN` | `tecnico2@fleetcore.test` | `FleetCore123!` |
 
-Ejemplo de registro:
+These credentials apply to accounts newly created by the seeder and are intended
+for testing. Existing accounts keep their existing passwords.
 
-```json
-{
-  "name": "Técnico de prueba",
-  "email": "tecnico@example.com",
-  "password": "UnaClaveSegura123!"
-}
-```
+The initial dataset contains:
 
-El login recibe `email` y `password`. Copia `data.accessToken` y envíalo como
-`Authorization: Bearer <token>`. Las contraseñas no se devuelven en las respuestas.
-El registro público no acepta un campo `role`; el primer administrador de prueba
-lo crea el seeder. Después, un administrador puede registrar cuentas de cualquiera
-de los dos roles con `POST /auth/users`, enviando los campos del registro y `role`. Las operaciones administrativas comprueban el rol `ADMIN` mediante
-`@Roles()` y `RolesGuard`.
+- One administrator and two technicians.
+- Three mechanics: two active profiles linked to the technicians, and one inactive
+  profile without a login account.
+- Two workshops: one active and one inactive.
+- Four vehicles: two `AVAILABLE`, one `IN_MAINTENANCE`, and one `INACTIVE`.
+- One `IN_PROGRESS` maintenance record associated with the vehicle under maintenance.
+- One `COMPLETED` maintenance record with closing information and vehicle history.
+- Audit entries for the sample maintenance records.
 
-## Integraciones externas
+The first technician already has an intervention in progress. Use the second
+technician or another active mechanic to test an additional execution.
 
-`GET /integrations/status` requiere el encabezado `x-api-key` con el valor de
-`API_KEY`. Una clave ausente o incorrecta devuelve `401`. La API Key no permite
-acceder a rutas que requieren JWT y un JWT no sustituye la API Key.
+## 6. Swagger and API usage
 
-## Swagger
+Default API URL: **http://localhost:3000**.
 
-Con la aplicación iniciada, abre **http://localhost:3000/docs**.
-La especificación está en http://localhost:3000/docs-json. Si cambias `PORT`,
-ajusta el puerto de las URLs.
+- **Swagger UI:** http://localhost:3000/docs
+- **OpenAPI JSON:** http://localhost:3000/docs-json
 
-1. Ejecuta `POST /auth/login` con una cuenta registrada o del seeder.
-2. Copia `data.accessToken` y abre **Authorize**.
-3. En `bearer`, pega solo el token, sin el prefijo `Bearer`.
-4. Prueba las operaciones permitidas para el rol. Para registrar vehículos o
-   mecánicos, inicia sesión con el administrador.
-5. Para integraciones, introduce la `API_KEY` en el campo `api-key` de **Authorize**.
+Replace port 3000 with your configured host port when necessary.
 
-Swagger documenta los datos de entrada, las respuestas y los errores. La UI y la
-especificación son públicas; cada operación conserva sus guards.
+### Sign in
 
-## Respuestas y errores
+In Swagger, open `POST /auth/login`, select **Try it out**, and submit:
 
 ```json
 {
-  "success": true,
-  "statusCode": 200,
-  "data": { "service": "FleetCore", "status": "ok" },
-  "path": "/integrations/status",
-  "timestamp": "2026-10-27T12:00:00.000Z"
+  "email": "admin@fleetcore.test",
+  "password": "FleetCore123!"
 }
 ```
+
+Copy `data.accessToken` from the response. Select **Authorize** and paste only the
+token into the `bearer` field; do not include the `Bearer` prefix. You can then
+execute operations allowed for that account's role.
+
+For direct HTTP clients, send `Authorization: Bearer <token>`.
+JWTs expire after one hour. Passwords and password hashes are never included in
+API responses.
+
+### Register accounts and link mechanics
+
+`POST /auth/register` is public and creates a `TECHNICIAN` account:
 
 ```json
 {
-  "success": false,
-  "statusCode": 401,
-  "message": "Se requiere x-api-key",
-  "path": "/integrations/status",
-  "timestamp": "2026-10-27T12:00:00.000Z"
+  "name": "Example Technician",
+  "email": "technician@example.com",
+  "password": "ExamplePassword123!"
 }
 ```
 
-En errores de validación, `message` es una lista. Los códigos HTTP son numéricos.
-Los conflictos de unicidad y relaciones devuelven `409`; los datos inválidos,
-`400`. Los errores inesperados devuelven `500` con un mensaje genérico.
+The public endpoint does not accept `role`. An authenticated administrator can use
+`POST /auth/users` with the same fields plus `role: ADMIN` or `role: TECHNICIAN`.
+The seeder creates the initial administrator account.
 
-## Vehículos
+A technician's user account stores login credentials. Its mechanic profile stores
+work-related information. The optional, one-to-one link is `Mechanic.userId`.
+Creating an account does not automatically create a mechanic profile: an
+administrator links them through `POST /mechanics` or `PATCH /mechanics/:id`.
+An inactive mechanic cannot receive a new assignment or start a scheduled job;
+the linked account can still sign in, view its history, and finish work already
+in progress.
 
-Todas las rutas requieren JWT. Solo `ADMIN` puede modificar datos.
+### Test the main workflow
 
-| Método | Ruta | Operación |
-| --- | --- | --- |
-| POST | `/vehicles` | Registrar; estado inicial `AVAILABLE` |
-| GET | `/vehicles` | Listar; filtro opcional `?status=AVAILABLE` |
-| GET | `/vehicles/plate/:plate` | Consultar por placa |
-| GET | `/vehicles/:id` | Consultar por UUID |
-| PATCH | `/vehicles/:id` | Actualizar datos; activar con `status: AVAILABLE` |
-| DELETE | `/vehicles/:id` | Inactivar y conservar el registro |
+1. Sign in as the administrator.
+2. Use `/vehicles`, `/mechanics`, and `/workshops` to select active resources or
+   register new ones. A mechanic must have a linked technician account if that
+   technician will use the API to manage the assignment.
+3. Create a maintenance record with `POST /maintenances`.
+4. Sign in as the assigned technician, authorize its JWT, and open
+   `GET /maintenances/mine`.
+5. Start the intervention using `PATCH /maintenances/:id/status` with
+   `{"status":"IN_PROGRESS"}`. The vehicle becomes `IN_MAINTENANCE`.
+6. Complete the intervention with all four closing fields. The vehicle becomes
+   `AVAILABLE` and receives the final mileage.
+7. Check the vehicle history and, as an administrator, the maintenance audit trail.
 
-```json
-{
-  "plate": "ABC123",
-  "brand": "Toyota",
-  "model": "Hilux",
-  "year": 2024,
-  "mileage": 45000
-}
-```
-
-La placa se normaliza a mayúsculas y es única. Se validan los tipos de datos,
-campos obligatorios y límites de almacenamiento. `IN_MAINTENANCE` se administra
-mediante mantenimientos; no se cambia manualmente su estado ni kilometraje durante
-una intervención. La inactivación conserva el registro y reserva su placa.
-
-## Mecánicos
-
-Todas las rutas requieren JWT. Solo `ADMIN` puede modificar datos.
-
-| Método | Ruta | Operación |
-| --- | --- | --- |
-| POST | `/mechanics` | Registrar; estado inicial `ACTIVE` |
-| GET | `/mechanics` | Listar; filtro opcional `?status=ACTIVE` o `INACTIVE` |
-| GET | `/mechanics/:id` | Consultar por UUID |
-| PATCH | `/mechanics/:id` | Actualizar; activar con `status: ACTIVE` |
-| DELETE | `/mechanics/:id` | Inactivar conservando el registro |
-
-```json
-{
-  "name": "Juan Pérez",
-  "email": "mecanico@example.com",
-  "specialty": "Motores diésel"
-}
-```
-
-`userId` permite vincular un usuario `TECHNICIAN`; el seeder lo utiliza para los
-dos técnicos exigidos. Una cuenta no se vincula a varios mecánicos. No existe una
-relación permanente con un taller. El correo se normaliza a minúsculas y es único.
-La inactivación conserva el registro.
-
-Los mantenimientos usan el vínculo con el usuario técnico para limitar sus
-consultas y cambios a sus asignaciones. Los horarios se validan entre todos los
-talleres.
-
-## Talleres
-
-Todas las rutas requieren JWT. Solo `ADMIN` puede registrar y cambiar estados.
-
-| Método | Ruta | Operación |
-| --- | --- | --- |
-| POST | `/workshops` | Registrar con nombre y dirección; estado inicial `ACTIVE` |
-| GET | `/workshops` | Listar únicamente talleres activos |
-| GET | `/workshops/:id` | Consultar un taller activo o inactivo por UUID |
-| PATCH | `/workshops/:id/status` | Activar o inactivar con `status: ACTIVE` o `INACTIVE` |
-
-```json
-{
-  "name": "Taller Norte",
-  "address": "Calle 50 # 20-30"
-}
-```
-
-La inactivación conserva el registro. El seeder incluye Taller Norte activo y
-Taller Centro inactivo. No se pueden programar ni iniciar mantenimientos con un taller inexistente o
-inactivo.
-
-## Mantenimientos e historial
-
-Todas las rutas requieren JWT. `ADMIN` programa y consulta todos los mantenimientos.
-`TECHNICIAN` consulta y actualiza solo los que tiene asignados mediante su mecánico.
-Las respuestas incluyen los datos del vehículo, mecánico y taller.
-
-| Método | Ruta | Operación |
-| --- | --- | --- |
-| POST | `/maintenances` | Programar mantenimiento (ADMIN) |
-| GET | `/maintenances` | Consultar con filtros `status`, `type`, `active`, `vehicleId`, `mechanicId` |
-| GET | `/maintenances/mine` | Consultar asignaciones del técnico autenticado |
-| GET | `/maintenances/:id` | Consultar una intervención |
-| PATCH | `/maintenances/:id/status` | Cambiar estado (ADMIN o técnico asignado) |
-| GET | `/maintenances/vehicle/:vehicleId/history` | Historial del vehículo, en todos sus estados |
-| GET | `/maintenances/mechanic/:mechanicId` | Intervenciones del mecánico |
-| GET | `/maintenances/:id/audits` | Consultar creación y cambios de estado (ADMIN) |
-
-Ejemplo para programar (sustituye los UUID por recursos activos):
+Example scheduling request; replace the ID placeholders with existing resource IDs:
 
 ```json
 {
   "type": "PREVENTIVE",
-  "description": "Cambio de aceite y filtros",
+  "description": "Replace engine oil and filters",
   "mileage": 45000,
   "scheduledStart": "2026-11-01T07:30:00-05:00",
   "scheduledEnd": "2026-11-01T09:00:00-05:00",
-  "vehicleId": "UUID_DEL_VEHICULO",
-  "mechanicId": "UUID_DEL_MECANICO",
-  "workshopId": "UUID_DEL_TALLER"
+  "vehicleId": "VEHICLE_UUID",
+  "mechanicId": "MECHANIC_UUID",
+  "workshopId": "WORKSHOP_UUID"
 }
 ```
 
-Tipos: `PREVENTIVE` y `CORRECTIVE`. El estado inicial es `SCHEDULED`.
-Las fechas incluyen zona horaria y la hora de fin debe ser posterior al inicio.
-El mecánico puede tener varios pendientes sin cruces, incluso en distintos
-talleres. Un horario que termina a las 09:00 permite otro que comienza a las 09:00.
-Un vehículo solo puede tener un mantenimiento `SCHEDULED` o `IN_PROGRESS`.
-El kilometraje inicial no puede ser inferior al actual del vehículo.
-
-Transiciones permitidas:
-
-- `SCHEDULED` → `IN_PROGRESS` o `CANCELLED`.
-- `IN_PROGRESS` → `COMPLETED`.
-- `COMPLETED` y `CANCELLED` son definitivos.
-
-No se permite cancelar una intervención en proceso. Al iniciar, el vehículo pasa
-a `IN_MAINTENANCE`. Cada mecánico solo puede ejecutar una intervención a la vez,
-aunque tenga otras programadas. La cancelación de un pendiente conserva el estado
-del vehículo y libera la reserva del horario y del vehículo.
-
-Para iniciar, envía `{"status":"IN_PROGRESS"}`. Para completar:
+Example closing request; use an actual finish time at or after the real start time:
 
 ```json
 {
   "status": "COMPLETED",
-  "workPerformed": "Aceite y filtros reemplazados",
+  "workPerformed": "Engine oil and filters replaced",
   "finalCost": 250000,
   "finishedAt": "2026-11-01T09:00:00-05:00",
   "finalMileage": 45100
 }
 ```
 
-Los cuatro campos de cierre son obligatorios; la fecha final no puede ser anterior
-al inicio real y el kilometraje no puede retroceder. Al completar, el vehículo
-queda `AVAILABLE` con el kilometraje final. El costo admite dos decimales y se
-devuelve como cadena decimal para conservar precisión.
+### Business rules
 
-Las reservas y transiciones usan transacciones y bloqueos de filas; PostgreSQL
-refuerza la unicidad del mantenimiento activo por vehículo y del que está en
-proceso por mecánico. La auditoría se guarda dentro de la misma transacción.
-Los conflictos devuelven `409` y los datos inválidos, `400`.
+- Maintenance types are `PREVENTIVE` and `CORRECTIVE`; initial status is `SCHEDULED`.
+- A vehicle can have only one active maintenance record (`SCHEDULED` or `IN_PROGRESS`).
+- A mechanic can have multiple scheduled jobs without overlapping time intervals,
+  regardless of the workshop. A job ending at 09:00 allows another to start at 09:00.
+- Each mechanic can have only one job in progress.
+- Scheduling requires available vehicles, active mechanics, and active workshops.
+- Mileage cannot be lower than the vehicle's current mileage when scheduling or closing.
+- `SCHEDULED` can become `IN_PROGRESS` or `CANCELLED`.
+- `IN_PROGRESS` can become `COMPLETED`; cancellation is not allowed once work starts.
+- `COMPLETED` and `CANCELLED` are final states.
+- Completion requires work performed, final cost, finish time, and final mileage.
+- Costs accept up to two decimal places and are returned as decimal strings.
+- Deactivation preserves records and their maintenance history.
 
-El seeder puede repetirse: no reabre ni sobrescribe mantenimientos ya existentes.
-El técnico uno tiene el mantenimiento de ejemplo en proceso; usa el técnico dos
-u otro mecánico activo para probar una ejecución adicional.
+### External integration
 
-## Comandos y pruebas
+`GET /integrations/status` requires the `x-api-key` header. In Swagger's
+**Authorize** dialog, enter your `.env` value for `API_KEY` in the `api-key` field.
+A JWT does not replace this key, and the key does not grant access to JWT-protected
+business endpoints.
+
+### Endpoint reference
+
+All routes below require JWT except public registration/login and the integration
+route, which uses API Key. Only administrators can modify vehicles, mechanics,
+and workshops or schedule maintenance.
+
+| Resource | Endpoints |
+| --- | --- |
+| Authentication | `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/users` (ADMIN) |
+| Vehicles | `POST /vehicles`, `GET /vehicles`, `GET /vehicles/:id`, `GET /vehicles/plate/:plate`, `PATCH /vehicles/:id`, `DELETE /vehicles/:id` |
+| Mechanics | `POST /mechanics`, `GET /mechanics`, `GET /mechanics/:id`, `PATCH /mechanics/:id`, `DELETE /mechanics/:id` |
+| Workshops | `POST /workshops`, `GET /workshops`, `GET /workshops/:id`, `PATCH /workshops/:id/status` |
+| Maintenance | `POST /maintenances`, `GET /maintenances`, `GET /maintenances/mine` (TECHNICIAN), `GET /maintenances/:id`, `PATCH /maintenances/:id/status` |
+| History | `GET /maintenances/vehicle/:vehicleId/history`, `GET /maintenances/mechanic/:mechanicId` |
+| Audit | `GET /maintenances/:id/audits` (ADMIN) |
+| Integration | `GET /integrations/status` (API Key) |
+
+Vehicle and mechanic DELETE operations deactivate records. Workshops are
+activated or deactivated using their status endpoint. The workshop list returns
+only active workshops. Maintenance queries support `status`, `type`, `vehicleId`,
+`mechanicId`, and `active=true` or `active=false`.
+Technicians can only read or update their own maintenance assignments.
+
+## 7. Tests and coverage
+
+With Node.js 24 and dependencies installed locally:
 
 ```bash
-npm run build
-npm run start:prod
 npm run typecheck
 npm test
 npm run test:cov
-npm run test:e2e
-npm run migration:show
 ```
 
-Las pruebas se compilan con TypeScript y se ejecutan con Jest. Las unitarias no
-necesitan PostgreSQL. Las pruebas HTTP usan `fetch` nativo y requieren una base de
-pruebas configurada y migraciones aplicadas; eliminan solo sus registros.
+The 101 unit tests run without PostgreSQL. The latest measured coverage is:
 
-Las pruebas Jest no sustituyen las evidencias de Postman o capturas de Swagger
-exigidas como entregable. La cobertura se obtiene con `npm run test:cov`.
+| Metric | Coverage |
+| --- | ---: |
+| Statements | 61.33% |
+| Branches | 43.01% |
+| Functions | 55.08% |
+| Lines | 66.95% |
 
-### Cobertura de pruebas unitarias
+Jest enforces at least 41% in all four metrics. The HTML report is generated at
+`coverage/lcov-report/index.html`, with a JSON summary at
+`coverage/coverage-summary.json`. Coverage exclusions are declared in
+`jest.config.cjs`; HTTP tests are not included in these unit coverage figures.
+
+To run the 39 HTTP tests, configure a separate PostgreSQL test database in the
+environment and apply migrations before running:
 
 ```bash
-npm run test:cov
+npm run migration:run
+npm run test:e2e
 ```
 
-La suite tiene 101 pruebas unitarias y se ejecuta sin PostgreSQL. Incluye
-registro y login con hashing y JWT reales, guards de autenticación, roles y API
-Key, permisos por asignación, reservas, estados, cierre, auditorías y protección
-de datos de vehículos y mecánicos. La persistencia se sustituye por dobles de
-prueba; la concurrencia real y las transacciones de PostgreSQL se comprueban en
-la suite HTTP separada.
+These tests use native HTTP requests and remove only their own fixtures.
+The Docker runtime image contains production dependencies only; run Jest from
+the local development installation. Docker's PostgreSQL port is internal, so
+local HTTP tests require a separately reachable test database.
 
-Última medición:
+## 8. Delivery checklist
 
-| Métrica | Cobertura |
-| --- | --- |
-| Sentencias | 61,33 % |
-| Ramas | 43,01 % |
-| Funciones | 55,08 % |
-| Líneas | 66,95 % |
+- Coder name and clan: included above.
+- Installation, environment, seeder, test credentials, and Swagger URL: documented.
+- `.env.example`: included.
+- Docker setup and Jest coverage above 40%: implemented and tested.
+- Database SQL dump for Moodle: pending.
+- Postman collection or Swagger screenshots: pending; Jest results do not replace them.
+- Publish the latest commits to the public repository: pending.
 
-Jest exige al menos 41 % en cada métrica y falla si se incumple ese umbral.
-El alcance incluye controladores, guards y servicios; las exclusiones de archivos
-de módulos, entidades, DTO, Swagger, migraciones y seeder se especifican en
-`jest.config.cjs`. Las pruebas HTTP no se suman a estas cifras.
-
-El informe HTML se genera en `coverage/lcov-report/index.html` y el resumen
-legible por herramientas en `coverage/coverage-summary.json`. Ambos se regeneran
-con el comando y están excluidos de Git.
-
-El extra de Jest requiere cobertura superior al 40 % y solo se califica cuando
-funcionan los requisitos obligatorios.
+The requirements review matrix is available in [docs/revision-final.md](docs/revision-final.md).
+OAuth 2.0 is an optional extra and is not implemented.

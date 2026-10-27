@@ -42,8 +42,8 @@ export class MaintenancesService {
 
   async create(dto: CreateMaintenanceDto, user: PublicUser) {
     const interval = scheduleInterval(dto.scheduledStart, dto.scheduledEnd);
-    // Bloquea siempre mecánico → vehículo → taller: serializa reservas concurrentes.
-    // El mantenimiento y su auditoría se confirman o revierten juntos.
+    // Lock mechanic, vehicle, and workshop rows in that order to serialize reservations.
+    // Commit or roll back the maintenance record and its audit entry together.
     return this.maintenances.manager.transaction(async (manager) => {
       const mechanic = await manager.getRepository(Mechanic).findOne({ where: { id: dto.mechanicId }, lock: { mode: 'pessimistic_write' } });
       if (!mechanic) throw new NotFoundException('Mecánico no encontrado');
@@ -59,7 +59,7 @@ export class MaintenancesService {
       if (await repository.existsBy({ vehicleId: vehicle.id, status: In(ACTIVE_MAINTENANCE_STATUSES) })) {
         throw new ConflictException('El vehículo ya tiene un mantenimiento activo');
       }
-      // Intervalos [inicio, fin): un mantenimiento puede comenzar cuando otro termina.
+      // Use half-open intervals [start, end) so consecutive bookings do not overlap.
       const overlap = await repository.createQueryBuilder('m')
         .where('m.mechanicId = :mechanicId', { mechanicId: mechanic.id })
         .andWhere('m.status IN (:...statuses)', { statuses: ACTIVE_MAINTENANCE_STATUSES })
@@ -119,7 +119,7 @@ export class MaintenancesService {
   }
 
   updateStatus(id: string, dto: UpdateMaintenanceStatusDto, user: PublicUser) {
-    // La transición, la disponibilidad, el kilometraje y la auditoría son atómicos.
+    // Update the maintenance status, vehicle availability, mileage, and audit atomically.
     return this.maintenances.manager.transaction(async (manager) => {
       const repository = manager.getRepository(Maintenance);
       const maintenance = await repository.findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });

@@ -18,7 +18,7 @@ import { databaseOptions } from './database.options.js';
           DB_PASSWORD: config.get('DB_PASSWORD', { infer: true }),
           DB_DATABASE: config.get('DB_DATABASE', { infer: true }),
         }),
-        // Nest registra las entidades de cada módulo; el CLI carga las migraciones.
+        // Nest registers module entities; the TypeORM CLI loads migrations separately.
         entities: [],
         migrations: [],
         autoLoadEntities: true,

@@ -35,7 +35,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         else message = exception.message;
       }
     } else if (exception instanceof QueryFailedError) {
-      // Traduce conflictos de PostgreSQL sin exponer consultas ni datos internos.
+      // Map PostgreSQL conflicts to HTTP errors without exposing queries or internal data.
       const code = (exception.driverError as { code?: string }).code;
       if (code === '23505') {
         statusCode = HttpStatus.CONFLICT;

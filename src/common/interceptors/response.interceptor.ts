@@ -13,7 +13,7 @@ export class ResponseInterceptor implements NestInterceptor {
     const http = context.switchToHttp();
     const request = http.getRequest<Request>();
     const response = http.getResponse<Response>();
-    // Conserva el estado HTTP de cada operación y aplica una envoltura única.
+    // Preserve each operation's HTTP status and apply a consistent response envelope.
     return next.handle().pipe(
       map((data: unknown) => ({
         success: true,

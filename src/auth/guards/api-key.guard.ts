@@ -31,7 +31,7 @@ export class ApiKeyGuard implements CanActivate {
     if (typeof provided !== 'string' || !provided) {
       throw new UnauthorizedException('Se requiere x-api-key');
     }
-    // Compara hashes de tamaño fijo para evitar diferencias de tiempo por longitud.
+    // Compare fixed-length hashes with a timing-safe operation.
     const expectedHash = createHash('sha256')
       .update(this.config.getOrThrow<string>('API_KEY'))
       .digest();

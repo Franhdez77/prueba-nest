@@ -63,7 +63,7 @@ export class MechanicsService {
   }
 
   update(id: string, dto: UpdateMechanicDto) {
-    // Serializa cambios del mecánico para coordinar futuras asignaciones de mantenimientos.
+    // Serialize mechanic updates with maintenance assignments that lock the same row.
     return this.mechanics.manager.transaction(async (manager) => {
       const repository = manager.getRepository(Mechanic);
       const mechanic = await repository.findOne({
@@ -78,7 +78,7 @@ export class MechanicsService {
   }
 
   deactivate(id: string) {
-    // Conserva el registro: la inactivación no elimina el historial de intervenciones.
+    // Keep the record so deactivation preserves the maintenance history.
     return this.update(id, { status: MechanicStatus.INACTIVE });
   }
 }

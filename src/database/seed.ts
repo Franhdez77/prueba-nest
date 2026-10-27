@@ -12,7 +12,7 @@ import { MechanicStatus } from '../mechanics/mechanic-status.enum.js';
 import { Vehicle } from '../vehicles/vehicle.entity.js';
 import { VehicleStatus } from '../vehicles/vehicle-status.enum.js';
 
-// Datos de prueba del enunciado para los módulos disponibles; no sobrescribe registros.
+// Seed sample data without overwriting existing records.
 await dataSource.initialize();
 try {
   await dataSource.transaction(async (manager) => {

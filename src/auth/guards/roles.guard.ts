@@ -14,6 +14,7 @@ import type { AuthenticatedRequest } from '../authenticated-request.js';
 export class RolesGuard implements CanActivate {
   constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
   canActivate(context: ExecutionContext): boolean {
+    // Endpoint roles override controller roles; the JWT guard supplies the current user.
     const roles = this.reflector.getAllAndOverride<Role[]>(ROLES, [
       context.getHandler(),
       context.getClass(),

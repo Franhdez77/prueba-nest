@@ -52,7 +52,7 @@ export class VehiclesService {
   }
 
   async update(id: string, dto: UpdateVehicleDto) {
-    // El bloqueo serializa los cambios del vehículo con sus intervenciones.
+    // Lock the vehicle row to serialize updates with maintenance operations.
     return this.vehicles.manager.transaction(async (manager) => {
       const repository = manager.getRepository(Vehicle);
       const vehicle = await repository.findOne({
@@ -74,7 +74,7 @@ export class VehiclesService {
   }
 
   deactivate(id: string) {
-    // La inactivación conserva el registro y sus relaciones históricas.
+    // Deactivate the record while preserving its identity and historical relationships.
     return this.update(id, { status: VehicleStatus.INACTIVE });
   }
 }

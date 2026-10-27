@@ -34,7 +34,7 @@ export class WorkshopsService {
   }
 
   updateStatus(id: string, status: WorkshopStatus) {
-    // Coordina el cambio de estado con las futuras asignaciones de mantenimientos.
+    // Lock the workshop row to coordinate status changes with maintenance assignments.
     return this.workshops.manager.transaction(async (manager) => {
       const repository = manager.getRepository(Workshop);
       const workshop = await repository.findOne({

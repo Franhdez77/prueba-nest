@@ -3,8 +3,7 @@
 Fecha: 27 de octubre de 2026.
 
 Resultado: los criterios funcionales revisados pasan las comprobaciones descritas
-abajo. La entrega sigue pendiente por identificación del coder, SQL, evidencias
-y actualización del repositorio publicado. Esta matriz no sustituye las capturas
+abajo. La entrega sigue pendiente por SQL, evidencias y actualización del repositorio publicado. Esta matriz no sustituye las capturas
 de Swagger o la colección de Postman solicitadas como entregable.
 
 Estados: **Cumple** = comprobado en código y/o ejecución; **Pendiente** = no
@@ -177,7 +176,7 @@ varios pendientes por mecánico sin cruces, solo uno en ejecución, cancelación
 | Protección de rutas según usuario/rol | Cumple | Excepciones públicas para autenticación y documentación; negocio protegido |
 | Repositorio GitHub público | Parcial | Público confirmado; faltan los commits locales posteriores a 0e59989 |
 | README con instalación, variables, seed, credenciales y Swagger | Cumple | Instrucciones locales y Docker disponibles |
-| Nombre y clan del coder | Pendiente | Faltan los datos del autor |
+| Nombre y clan del coder | Cumple | Francisco Hernandez, clan Node/Nest AN, incluidos en README |
 | .env.example entregado | Cumple | Incluido en Git; .env excluido |
 | Dump SQL con estructura y datos para Moodle | Pendiente | No se encontró archivo SQL de entrega |
 | Swagger que permite probar la solución | Cumple | UI, cuerpos de entrada y esquemas JWT/API Key comprobados |

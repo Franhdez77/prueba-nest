@@ -9,7 +9,7 @@ function derive(password: string, salt: string): Promise<Buffer> {
   });
 }
 
-// Hash con sal aleatoria usando exclusivamente el módulo nativo de Node.js.
+// Hash passwords with a random salt using the native Node.js crypto module.
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString('hex');
   const key = await derive(password, salt);

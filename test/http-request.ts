@@ -4,7 +4,7 @@ import { expect } from '@jest/globals';
 
 interface HttpResult {
   status: number;
-  // Las respuestas son JSON externos cuya estructura comprueban las aserciones.
+  // Responses contain external JSON whose structure is checked by the assertions.
   body: any;
   headers: Headers;
 }
@@ -84,7 +84,7 @@ class HttpRequest implements PromiseLike<HttpResult> {
   }
 }
 
-// HTTP real con fetch nativo; Jest se encarga de todas las aserciones.
+// Send real HTTP requests with native fetch; Jest handles the assertions.
 export default function request(server: Server) {
   return {
     get: (path: string) => new HttpRequest(server, 'GET', path),

@@ -11,7 +11,7 @@ import { configureApp } from '../src/common/configure-app.js';
 import { User } from '../src/users/user.entity.js';
 import { Role } from '../src/users/role.enum.js';
 
-// Se ejecuta contra la base configurada y elimina únicamente sus propios usuarios.
+// Use the configured database and remove only users created by this suite.
 describe('Autenticación y roles (e2e)', () => {
   let app: INestApplication;
   let db: DataSource;

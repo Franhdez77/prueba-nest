@@ -15,6 +15,7 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
+    // Persist only the password hash and return a profile without credentials.
     const passwordHash = await hashPassword(dto.password);
     return publicUser(
       await this.users.create(dto.name, dto.email, passwordHash),
@@ -33,6 +34,7 @@ export class AuthService {
     if (!user || !(await verifyPassword(user.passwordHash, dto.password))) {
       throw new UnauthorizedException('Correo o contraseña incorrectos');
     }
+    // Keep credentials out of the token; authorization rechecks the database role.
     return {
       accessToken: await this.jwt.signAsync({ sub: user.id, role: user.role }),
       tokenType: 'Bearer',

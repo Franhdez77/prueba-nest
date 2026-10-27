@@ -23,7 +23,7 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // Solo los endpoints marcados explícitamente quedan fuera de la protección JWT.
+    // Only explicitly marked public endpoints bypass JWT authentication.
     if (
       this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, [
         context.getHandler(),
@@ -31,7 +31,7 @@ export class JwtAuthGuard implements CanActivate {
       ])
     )
       return true;
-    // Las integraciones usan el guard de API Key en lugar del token JWT.
+    // Integration endpoints delegate authentication to the API Key guard.
     if (
       this.reflector.getAllAndOverride<boolean>(API_KEY_AUTH, [
         context.getHandler(),
@@ -53,7 +53,7 @@ export class JwtAuthGuard implements CanActivate {
     } catch {
       throw new UnauthorizedException('Token inválido o expirado');
     }
-    // El rol vigente se consulta en la base, no se confía únicamente en el token.
+    // Read the current role from the database instead of trusting the token alone.
     const user = await this.users.findById(subject);
     if (!user) throw new UnauthorizedException('Usuario no disponible');
     request.user = publicUser(user);
