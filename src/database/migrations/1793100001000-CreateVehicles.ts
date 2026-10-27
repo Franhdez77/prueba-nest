@@ -6,7 +6,7 @@ export class CreateVehicles1793100001000 implements MigrationInterface {
       `CREATE TYPE "vehicle_status" AS ENUM ('AVAILABLE', 'IN_MAINTENANCE', 'INACTIVE')`,
     );
     await queryRunner.query(`CREATE TABLE "vehicles" (
-      "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+      "id" SERIAL NOT NULL,
       "plate" varchar(20) NOT NULL,
       "brand" varchar(100) NOT NULL,
       "model" varchar(100) NOT NULL,

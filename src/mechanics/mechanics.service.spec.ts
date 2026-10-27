@@ -1,3 +1,4 @@
+import { MechanicsDao } from './mechanics.dao.js';
 import { jest } from '@jest/globals';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import type { EntityManager, Repository } from 'typeorm';
@@ -20,8 +21,8 @@ describe('MechanicsService', () => {
   const dto = { name: 'Juan Pérez', email: 'juan@example.com', specialty: 'Motor' };
 
   beforeEach(() => {
-    mechanic = Object.assign(new Mechanic(), { ...dto, id: 'mechanic-id', userId: 'tech-id', status: Status.ACTIVE });
-    user = Object.assign(new User(), { id: 'tech-id', role: Role.TECHNICIAN });
+    mechanic = Object.assign(new Mechanic(), { ...dto, id: 1, userId: 2, status: Status.ACTIVE });
+    user = Object.assign(new User(), { id: 2, role: Role.TECHNICIAN });
     users = { findOneBy: jest.fn<(query: unknown) => Promise<User | null>>().mockResolvedValue(user) };
     repository = {
       create: jest.fn<(data: Partial<Mechanic>) => Mechanic>().mockImplementation(data => Object.assign(new Mechanic(), data)),
@@ -29,7 +30,8 @@ describe('MechanicsService', () => {
       findOne: jest.fn<(query: unknown) => Promise<Mechanic | null>>().mockResolvedValue(mechanic),
     };
     const manager = { getRepository: (entity: unknown) => entity === User ? users : repository } as unknown as EntityManager;
-    service = new MechanicsService({ manager: { transaction: (callback: (manager: EntityManager) => Promise<unknown>) => callback(manager) } } as unknown as Repository<Mechanic>);
+    Object.assign(repository, { manager });
+    service = new MechanicsService(new MechanicsDao({ manager: { transaction: (callback: (manager: EntityManager) => Promise<unknown>) => callback(manager) } } as unknown as Repository<Mechanic>));
   });
 
   it('registra un mecánico activo sin exigir cuenta de acceso', async () => {
@@ -43,7 +45,7 @@ describe('MechanicsService', () => {
 
   it('rechaza cuentas inexistentes o con rol administrador antes de guardar', async () => {
     users.findOneBy.mockResolvedValueOnce(null);
-    await expect(service.create({ ...dto, userId: 'missing' })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.create({ ...dto, userId: 999999 })).rejects.toBeInstanceOf(NotFoundException);
     user.role = Role.ADMIN;
     await expect(service.create({ ...dto, userId: user.id })).rejects.toBeInstanceOf(ConflictException);
     expect(repository.save).not.toHaveBeenCalled();
@@ -68,7 +70,7 @@ describe('MechanicsService', () => {
 
   it('responde 404 sin guardar cuando el mecánico no existe', async () => {
     repository.findOne.mockResolvedValue(null);
-    await expect(service.update('missing', { status: Status.ACTIVE })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.update(999999, { status: Status.ACTIVE })).rejects.toBeInstanceOf(NotFoundException);
     expect(repository.save).not.toHaveBeenCalled();
   });
 });

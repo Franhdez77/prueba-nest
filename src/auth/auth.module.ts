@@ -1,3 +1,5 @@
+import { GithubOAuthService } from './github-oauth.service.js';
+import { GithubOAuthController } from './github-oauth.controller.js';
 import { ApiKeyGuard } from './guards/api-key.guard.js';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -20,9 +22,10 @@ import { RolesGuard } from './guards/roles.guard.js';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, GithubOAuthController],
   providers: [
     AuthService,
+    GithubOAuthService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ApiKeyGuard },

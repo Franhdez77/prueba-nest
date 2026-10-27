@@ -3,7 +3,7 @@ import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { hashPassword, verifyPassword } from './password.js';
 import { UsersService } from '../users/users.service.js';
-import { publicUser } from '../users/user.entity.js';
+import { publicUser, type User } from '../users/user.entity.js';
 import type { RegisterDto } from './dto/register.dto.js';
 import type { LoginDto } from './dto/login.dto.js';
 
@@ -34,9 +34,13 @@ export class AuthService {
     if (!user || !(await verifyPassword(user.passwordHash, dto.password))) {
       throw new UnauthorizedException('Correo o contraseña incorrectos');
     }
+    return this.issueToken(user);
+  }
+
+  async issueToken(user: User) {
     // Keep credentials out of the token; authorization rechecks the database role.
     return {
-      accessToken: await this.jwt.signAsync({ sub: user.id, role: user.role }),
+      accessToken: await this.jwt.signAsync({ sub: String(user.id), role: user.role }),
       tokenType: 'Bearer',
       expiresIn: 3600,
       user: publicUser(user),

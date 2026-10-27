@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { randomUUID } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -16,13 +16,13 @@ describe('Autenticación y roles (e2e)', () => {
   let app: INestApplication;
   let db: DataSource;
   let jwt: JwtService;
-  let technicianId: string;
+  let technicianId: number;
   let token: string;
   let adminToken: string;
   const registeredEmails: string[] = [];
-  let adminId: string;
-  const email = `auth-${randomUUID()}@example.com`;
-  const adminEmail = `admin-${randomUUID()}@example.com`;
+  let adminId: number;
+  const email = `auth-${randomBytes(8).toString('hex')}@example.com`;
+  const adminEmail = `admin-${randomBytes(8).toString('hex')}@example.com`;
   const password = 'PruebaSegura123!';
 
   beforeAll(async () => {
@@ -34,6 +34,16 @@ describe('Autenticación y roles (e2e)', () => {
     await app.init();
     db = app.get(DataSource);
     jwt = app.get(JwtService);
+    const admin = await db.getRepository(User).save(
+      db.getRepository(User).create({
+        name: 'Administrador de prueba',
+        email: adminEmail,
+        role: Role.ADMIN,
+        passwordHash: await hashPassword(password),
+      }),
+    );
+    adminId = admin.id;
+    adminToken = await jwt.signAsync({ sub: String(adminId), role: Role.ADMIN });
   });
 
   afterAll(async () => {
@@ -45,13 +55,15 @@ describe('Autenticación y roles (e2e)', () => {
     await app?.close();
   });
 
-  it('valida los datos y rechaza la elección de rol en el registro público', async () => {
+  it('valida los datos y rechaza la elección de rol en el registro de técnicos', async () => {
     await request(app.getHttpServer())
       .post('/auth/register')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ name: 'Técnico', email, password, role: 'ADMIN' })
       .expect(400);
     await request(app.getHttpServer())
       .post('/auth/register')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ name: '', email: 'incorrecto', password: '123' })
       .expect(400);
   });
@@ -59,6 +71,7 @@ describe('Autenticación y roles (e2e)', () => {
   it('registra un técnico, normaliza el correo y guarda un hash seguro', async () => {
     const res = await request(app.getHttpServer())
       .post('/auth/register')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ name: 'Técnico de prueba', email: email.toUpperCase(), password })
       .expect(201);
     technicianId = res.body.data.id;
@@ -78,6 +91,7 @@ describe('Autenticación y roles (e2e)', () => {
   it('devuelve 409 para un correo duplicado', async () => {
     await request(app.getHttpServer())
       .post('/auth/register')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ name: 'Duplicado', email, password })
       .expect(409);
   });
@@ -89,7 +103,7 @@ describe('Autenticación y roles (e2e)', () => {
       .expect(401);
     await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: `absent-${randomUUID()}@example.com`, password })
+      .send({ email: `absent-${randomBytes(8).toString('hex')}@example.com`, password })
       .expect(401);
     const res = await request(app.getHttpServer())
       .post('/auth/login')
@@ -100,6 +114,15 @@ describe('Autenticación y roles (e2e)', () => {
     expect(res.body.data.user.passwordHash).toBeUndefined();
   });
 
+  it('requires ADMIN for technician registration and leaves no unauthorized account', async () => {
+    const input = { name: 'Unauthorized', email: `unauthorized-${randomBytes(8).toString('hex')}@example.com`, password };
+    const before = await db.getRepository(User).count();
+    await request(app.getHttpServer()).post('/auth/register').send(input).expect(401);
+    await request(app.getHttpServer()).post('/auth/register').set('Authorization', `Bearer ${token}`).send(input).expect(403);
+    expect(await db.getRepository(User).count()).toBe(before);
+    expect(await db.getRepository(User).findOneBy({ email: input.email })).toBeNull();
+  });
+
   it('protege el perfil ante tokens ausentes, inválidos o expirados', async () => {
     await request(app.getHttpServer()).get('/auth/me').expect(401);
     await request(app.getHttpServer())
@@ -107,7 +130,7 @@ describe('Autenticación y roles (e2e)', () => {
       .set('Authorization', 'Bearer inválido')
       .expect(401);
     const expired = await jwt.signAsync(
-      { sub: technicianId },
+      { sub: String(technicianId) },
       { expiresIn: -1 },
     );
     await request(app.getHttpServer())
@@ -131,15 +154,6 @@ describe('Autenticación y roles (e2e)', () => {
       .post('/vehicles').send({ plate: 'INVALID', mileage: -1 })
       .set('Authorization', `Bearer ${token}`)
       .expect(403);
-    const admin = await db.getRepository(User).save(
-      db.getRepository(User).create({
-        name: 'Administrador de prueba',
-        email: adminEmail,
-        role: Role.ADMIN,
-        passwordHash: await hashPassword(password),
-      }),
-    );
-    adminId = admin.id;
     const res = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: adminEmail, password })
@@ -152,12 +166,12 @@ describe('Autenticación y roles (e2e)', () => {
     expect(adminId).toBeTruthy();
   });
   it('permite a ADMIN registrar ambos roles y rechaza escaladas de privilegios', async () => {
-    const input = { name: 'Usuario prueba', email: `registered-${randomUUID()}@example.com`, password, role: 'ADMIN' };
+    const input = { name: 'Usuario prueba', email: `registered-${randomBytes(8).toString('hex')}@example.com`, password, role: 'ADMIN' };
     await request(app.getHttpServer()).post('/auth/users').send(input).expect(401);
     await request(app.getHttpServer()).post('/auth/users').set('Authorization', `Bearer ${token}`).send(input).expect(403);
     await request(app.getHttpServer()).post('/auth/users').set('Authorization', `Bearer ${adminToken}`).send({ ...input, role: 'UNKNOWN' }).expect(400);
     for (const role of ['ADMIN', 'TECHNICIAN']) {
-      const email = `registered-${randomUUID()}@example.com`;
+      const email = `registered-${randomBytes(8).toString('hex')}@example.com`;
       registeredEmails.push(email);
       const created = await request(app.getHttpServer()).post('/auth/users').set('Authorization', `Bearer ${adminToken}`).send({ ...input, email, role }).expect(201);
       expect(created.body.data.role).toBe(role);

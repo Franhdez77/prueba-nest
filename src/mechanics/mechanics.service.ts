@@ -1,13 +1,11 @@
 import {
   ConflictException,
   Injectable,
+  Inject,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
-import { Mechanic } from './mechanic.entity.js';
+import { MechanicsDao } from './mechanics.dao.js';
 import { MechanicStatus } from './mechanic-status.enum.js';
-import { User } from '../users/user.entity.js';
 import { Role } from '../users/role.enum.js';
 import type { CreateMechanicDto } from './dto/create-mechanic.dto.js';
 import type { UpdateMechanicDto } from './dto/update-mechanic.dto.js';
@@ -16,16 +14,15 @@ import type { ListMechanicsDto } from './dto/list-mechanics.dto.js';
 @Injectable()
 export class MechanicsService {
   constructor(
-    @InjectRepository(Mechanic)
-    private readonly mechanics: Repository<Mechanic>,
+    @Inject(MechanicsDao) private readonly mechanics: MechanicsDao,
   ) {}
 
   private async validateTechnician(
-    manager: EntityManager,
-    userId: string | null | undefined,
+    dao: MechanicsDao,
+    userId: number | null | undefined,
   ) {
     if (!userId) return;
-    const user = await manager.getRepository(User).findOneBy({ id: userId });
+    const user = await dao.findUser(userId);
     if (!user) throw new NotFoundException('Usuario no encontrado');
     if (user.role !== Role.TECHNICIAN)
       throw new ConflictException(
@@ -34,50 +31,37 @@ export class MechanicsService {
   }
 
   create(dto: CreateMechanicDto) {
-    return this.mechanics.manager.transaction(async (manager) => {
-      await this.validateTechnician(manager, dto.userId);
-      const repository = manager.getRepository(Mechanic);
-      return repository.save(
-        repository.create({
-          name: dto.name,
-          email: dto.email,
-          specialty: dto.specialty,
-          userId: dto.userId ?? null,
-          status: MechanicStatus.ACTIVE,
-        }),
-      );
+    return this.mechanics.transaction(async (dao) => {
+      await this.validateTechnician(dao, dto.userId);
+      return dao.create({
+        name: dto.name, email: dto.email, specialty: dto.specialty,
+        userId: dto.userId ?? null, status: MechanicStatus.ACTIVE,
+      });
     });
   }
 
   findAll(query: ListMechanicsDto) {
-    return this.mechanics.find({
-      where: query.status ? { status: query.status } : {},
-      order: { createdAt: 'DESC', id: 'ASC' },
-    });
+    return this.mechanics.findAll(query.status);
   }
 
-  async findOne(id: string) {
-    const mechanic = await this.mechanics.findOneBy({ id });
+  async findOne(id: number) {
+    const mechanic = await this.mechanics.findById(id);
     if (!mechanic) throw new NotFoundException('Mecánico no encontrado');
     return mechanic;
   }
 
-  update(id: string, dto: UpdateMechanicDto) {
+  update(id: number, dto: UpdateMechanicDto) {
     // Serialize mechanic updates with maintenance assignments that lock the same row.
-    return this.mechanics.manager.transaction(async (manager) => {
-      const repository = manager.getRepository(Mechanic);
-      const mechanic = await repository.findOne({
-        where: { id },
-        lock: { mode: 'pessimistic_write' },
-      });
+    return this.mechanics.transaction(async (dao) => {
+      const mechanic = await dao.findLocked(id);
       if (!mechanic) throw new NotFoundException('Mecánico no encontrado');
-      await this.validateTechnician(manager, dto.userId);
+      await this.validateTechnician(dao, dto.userId);
       Object.assign(mechanic, dto);
-      return repository.save(mechanic);
+      return dao.save(mechanic);
     });
   }
 
-  deactivate(id: string) {
+  deactivate(id: number) {
     // Keep the record so deactivation preserves the maintenance history.
     return this.update(id, { status: MechanicStatus.INACTIVE });
   }

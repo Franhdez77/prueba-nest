@@ -7,7 +7,7 @@ import { UsersService } from '../users/users.service.js';
 import { User } from '../users/user.entity.js';
 import { Role } from '../users/role.enum.js';
 
-const id = '10000000-0000-4000-8000-000000000001';
+const id = 1;
 const jwt = new JwtService({ secret: 'test-secret-used-only-by-unit-tests', signOptions: { expiresIn: '1h' } });
 
 // Replace only persistence; exercise the real password hashing and JWT implementations.
@@ -65,7 +65,7 @@ describe('AuthService', () => {
     users.findForLogin.mockResolvedValue(stored);
     const result = await service.login({ email: stored.email, password: 'ClaveSegura123!' });
     const payload = await jwt.verifyAsync<{ sub: string; role: Role; iat: number; exp: number }>(result.accessToken);
-    expect(payload).toMatchObject({ sub: id, role: Role.TECHNICIAN });
+    expect(payload).toMatchObject({ sub: String(id), role: Role.TECHNICIAN });
     expect(payload.exp - payload.iat).toBe(3600);
     expect(result).toMatchObject({ tokenType: 'Bearer', expiresIn: 3600 });
     expect(result.user).not.toHaveProperty('passwordHash');

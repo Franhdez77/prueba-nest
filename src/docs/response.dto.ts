@@ -3,10 +3,10 @@ import { Role } from '../users/role.enum.js';
 
 export class UserResponseDto {
   @ApiProperty({
-    format: 'uuid',
-    example: 'fc6ec825-9f9c-4b65-bf45-6e325587dd44',
+    type: Number, minimum: 1,
+    example: 1,
   })
-  id: string;
+  id: number;
 
   @ApiProperty({ example: 'Técnico de prueba' })
   name: string;

@@ -13,9 +13,9 @@ import { MechanicStatus } from './mechanic-status.enum.js';
 
 @Entity('mechanics')
 export class Mechanic {
-  @ApiProperty({ format: 'uuid' })
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @ApiProperty({ example: 'Juan Pérez' })
   @Column({ type: 'varchar', length: 100 })
@@ -39,13 +39,13 @@ export class Mechanic {
   status: MechanicStatus;
 
   @ApiProperty({
-    type: String,
-    format: 'uuid',
+    type: Number,
+    minimum: 1,
     nullable: true,
     description: 'Usuario TECHNICIAN vinculado, si existe.',
   })
-  @Column({ name: 'user_id', type: 'uuid', nullable: true, unique: true })
-  userId: string | null;
+  @Column({ name: 'user_id', type: 'integer', nullable: true, unique: true })
+  userId: number | null;
 
   @OneToOne(() => User, { nullable: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'user_id' })

@@ -38,10 +38,10 @@ try {
     }
     const workshops = manager.getRepository(Workshop);
     for (const definition of [
-      { id: '40000000-0000-4000-8000-000000000001', name: 'Taller Norte', address: 'Calle 50 # 20-30', status: WorkshopStatus.ACTIVE },
-      { id: '40000000-0000-4000-8000-000000000002', name: 'Taller Centro', address: 'Carrera 10 # 15-20', status: WorkshopStatus.INACTIVE },
+      { name: 'Taller Norte', address: 'Calle 50 # 20-30', status: WorkshopStatus.ACTIVE },
+      { name: 'Taller Centro', address: 'Carrera 10 # 15-20', status: WorkshopStatus.INACTIVE },
     ]) {
-      if (!await workshops.existsBy({ id: definition.id })) {
+      if (!await workshops.existsBy({ name: definition.name, address: definition.address })) {
         await workshops.save(workshops.create(definition));
       }
     }
@@ -55,13 +55,14 @@ try {
         await vehicles.save(vehicles.create({ ...definition, brand: 'Chevrolet', model: 'NPR', year: 2024, mileage: 45000 }));
       }
     }
-    const activeVehicleId = '50000000-0000-4000-8000-000000000004';
-    if (!await vehicles.existsBy({ id: activeVehicleId })) {
-      await vehicles.save(vehicles.create({
-        id: activeVehicleId, plate: 'JKL012', brand: 'Chevrolet', model: 'NPR',
-        year: 2024, mileage: 60000, status: VehicleStatus.IN_MAINTENANCE,
+    let activeVehicle = await vehicles.findOneBy({ plate: 'JKL012' });
+    if (!activeVehicle) {
+      activeVehicle = await vehicles.save(vehicles.create({
+        plate: 'JKL012', brand: 'Chevrolet', model: 'NPR', year: 2024,
+        mileage: 60000, status: VehicleStatus.IN_MAINTENANCE,
       }));
     }
+    const activeWorkshop = await workshops.findOneByOrFail({ name: 'Taller Norte', address: 'Calle 50 # 20-30' });
     const mechanicOne = await mechanics.findOneByOrFail({ email: 'tecnico1@fleetcore.test' });
     const mechanicTwo = await mechanics.findOneByOrFail({ email: 'tecnico2@fleetcore.test' });
     const historyVehicle = await vehicles.findOneByOrFail({ plate: 'DEF456' });
@@ -69,16 +70,16 @@ try {
     const audits = manager.getRepository(MaintenanceAudit);
     const samples = [
       {
-        id: '60000000-0000-4000-8000-000000000001', vehicleId: activeVehicleId,
-        mechanicId: mechanicOne.id, workshopId: '40000000-0000-4000-8000-000000000001',
+        vehicleId: activeVehicle.id,
+        mechanicId: mechanicOne.id, workshopId: activeWorkshop.id,
         type: MaintenanceType.CORRECTIVE, description: 'Revisión del sistema de frenos',
         mileage: 60000, scheduledStart: new Date('2026-10-27T07:30:00-05:00'),
         scheduledEnd: new Date('2026-10-27T09:00:00-05:00'),
         startedAt: new Date('2026-10-27T07:30:00-05:00'), status: MaintenanceStatus.IN_PROGRESS,
       },
       {
-        id: '60000000-0000-4000-8000-000000000002', vehicleId: historyVehicle.id,
-        mechanicId: mechanicTwo.id, workshopId: '40000000-0000-4000-8000-000000000001',
+        vehicleId: historyVehicle.id,
+        mechanicId: mechanicTwo.id, workshopId: activeWorkshop.id,
         type: MaintenanceType.PREVENTIVE, description: 'Cambio de aceite y filtros',
         mileage: 44000, scheduledStart: new Date('2026-10-20T07:30:00-05:00'),
         scheduledEnd: new Date('2026-10-20T09:00:00-05:00'),
@@ -88,8 +89,8 @@ try {
       },
     ];
     for (const sample of samples) {
-      if (await maintenances.existsBy({ id: sample.id })) continue;
-      await maintenances.save(maintenances.create(sample));
+      if (await maintenances.existsBy({ vehicleId: sample.vehicleId, description: sample.description, scheduledStart: sample.scheduledStart })) continue;
+      const record = await maintenances.save(maintenances.create(sample));
       const transitions: Array<[MaintenanceStatus | null, MaintenanceStatus, Date]> = [
         [null, MaintenanceStatus.SCHEDULED, new Date(sample.scheduledStart.getTime() - 60000)],
         [MaintenanceStatus.SCHEDULED, MaintenanceStatus.IN_PROGRESS, sample.startedAt],
@@ -98,7 +99,7 @@ try {
         transitions.push([MaintenanceStatus.IN_PROGRESS, MaintenanceStatus.COMPLETED, sample.finishedAt]);
       }
       for (const [fromStatus, toStatus, createdAt] of transitions) {
-        await audits.save(audits.create({ maintenanceId: sample.id, actorId: created[0].id, fromStatus, toStatus, createdAt }));
+        await audits.save(audits.create({ maintenanceId: record.id, actorId: created[0].id, fromStatus, toStatus, createdAt }));
       }
     }
 

@@ -7,21 +7,21 @@ import { MaintenanceStatus } from './maintenance.enums.js';
 @Index('IX_maintenance_audits', ['maintenanceId', 'createdAt'])
 @Entity('maintenance_audits')
 export class MaintenanceAudit {
-  @ApiProperty({ format: 'uuid' })
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @PrimaryGeneratedColumn()
+  id: number;
 
-  @ApiProperty({ format: 'uuid' })
-  @Column({ name: 'maintenance_id', type: 'uuid' })
-  maintenanceId: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @Column({ name: 'maintenance_id', type: 'integer' })
+  maintenanceId: number;
 
   @ManyToOne(() => Maintenance, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'maintenance_id' })
   maintenance: Maintenance;
 
-  @ApiProperty({ format: 'uuid' })
-  @Column({ name: 'actor_id', type: 'uuid' })
-  actorId: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @Column({ name: 'actor_id', type: 'integer' })
+  actorId: number;
 
   @ManyToOne(() => User, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'actor_id' })

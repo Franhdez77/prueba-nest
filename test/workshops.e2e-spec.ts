@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -15,8 +15,8 @@ describe('Talleres (e2e)', () => {
   let db: DataSource;
   let adminToken: string;
   let technicianToken: string;
-  let workshopId: string;
-  const suffix = randomUUID();
+  let workshopId: number;
+  const suffix = randomBytes(8).toString('hex');
   const name = `Taller prueba ${suffix}`;
   const emails = [`workshop-admin-${suffix}@example.com`, `workshop-tech-${suffix}@example.com`];
   const payload = { name, address: 'Calle 50 # 20-30' };
@@ -31,8 +31,8 @@ describe('Talleres (e2e)', () => {
     const jwt = app.get(JwtService);
     const admin = await users.save(users.create({ name: 'Admin prueba', email: emails[0], passwordHash: 'unused', role: Role.ADMIN }));
     const technician = await users.save(users.create({ name: 'Técnico prueba', email: emails[1], passwordHash: 'unused', role: Role.TECHNICIAN }));
-    adminToken = await jwt.signAsync({ sub: admin.id });
-    technicianToken = await jwt.signAsync({ sub: technician.id });
+    adminToken = await jwt.signAsync({ sub: String(admin.id) });
+    technicianToken = await jwt.signAsync({ sub: String(technician.id) });
   });
 
   afterAll(async () => {
@@ -46,7 +46,7 @@ describe('Talleres (e2e)', () => {
   it('protege consultas y reserva el registro y cambios de estado para ADMIN', async () => {
     await request(app.getHttpServer()).get('/workshops').expect(401);
     await request(app.getHttpServer()).post('/workshops').set('Authorization', `Bearer ${technicianToken}`).send(payload).expect(403);
-    await request(app.getHttpServer()).patch(`/workshops/${randomUUID()}/status`).set('Authorization', `Bearer ${technicianToken}`).send({ status: 'INACTIVE' }).expect(403);
+    await request(app.getHttpServer()).patch(`/workshops/${999999}/status`).set('Authorization', `Bearer ${technicianToken}`).send({ status: 'INACTIVE' }).expect(403);
   });
 
   it('valida los datos y crea un taller activo', async () => {
@@ -62,7 +62,7 @@ describe('Talleres (e2e)', () => {
     const found = await request(app.getHttpServer()).get(`/workshops/${workshopId}`).set('Authorization', `Bearer ${technicianToken}`).expect(200);
     expect(found.body.data).toMatchObject(payload);
     const listed = await request(app.getHttpServer()).get('/workshops').set('Authorization', `Bearer ${technicianToken}`).expect(200);
-    expect(listed.body.data.some((w: { id: string }) => w.id === workshopId)).toBe(true);
+    expect(listed.body.data.some((w: { id: number }) => w.id === workshopId)).toBe(true);
     expect(listed.body.data.every((w: { status: string }) => w.status === 'ACTIVE')).toBe(true);
   });
 
@@ -72,7 +72,7 @@ describe('Talleres (e2e)', () => {
     expect(found.body.data.status).toBe('INACTIVE');
     expect(await db.getRepository(Workshop).existsBy({ id: workshopId })).toBe(true);
     const listed = await request(app.getHttpServer()).get('/workshops').set('Authorization', `Bearer ${technicianToken}`).expect(200);
-    expect(listed.body.data.some((w: { id: string }) => w.id === workshopId)).toBe(false);
+    expect(listed.body.data.some((w: { id: number }) => w.id === workshopId)).toBe(false);
     const active = await request(app.getHttpServer()).patch(`/workshops/${workshopId}/status`).set('Authorization', `Bearer ${adminToken}`).send({ status: 'ACTIVE' }).expect(200);
     expect(active.body.data.status).toBe('ACTIVE');
   });
@@ -82,7 +82,7 @@ describe('Talleres (e2e)', () => {
       await request(app.getHttpServer()).patch(`/workshops/${workshopId}/status`).set('Authorization', `Bearer ${adminToken}`).send({ status }).expect(400);
     }
     await request(app.getHttpServer()).get('/workshops/incorrecto').set('Authorization', `Bearer ${adminToken}`).expect(400);
-    await request(app.getHttpServer()).get(`/workshops/${randomUUID()}`).set('Authorization', `Bearer ${adminToken}`).expect(404);
-    await request(app.getHttpServer()).patch(`/workshops/${randomUUID()}/status`).set('Authorization', `Bearer ${adminToken}`).send({ status: 'ACTIVE' }).expect(404);
+    await request(app.getHttpServer()).get(`/workshops/${999999}`).set('Authorization', `Bearer ${adminToken}`).expect(404);
+    await request(app.getHttpServer()).patch(`/workshops/${999999}/status`).set('Authorization', `Bearer ${adminToken}`).send({ status: 'ACTIVE' }).expect(404);
   });
 });

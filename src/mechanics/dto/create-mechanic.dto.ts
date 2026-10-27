@@ -1,13 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import {
-  IsEmail,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Length,
-  MaxLength,
-} from 'class-validator';
+import { IsEmail, IsOptional, IsString, IsInt, Min, Max, Length, MaxLength } from 'class-validator';
 
 export class CreateMechanicDto {
   @ApiProperty({ example: 'Juan Pérez', minLength: 2, maxLength: 100 })
@@ -39,12 +32,14 @@ export class CreateMechanicDto {
   specialty: string;
 
   @ApiPropertyOptional({
-    type: String,
-    format: 'uuid',
+    type: Number,
+    minimum: 1,
     nullable: true,
     description: 'Usuario TECHNICIAN. Null permite desvincular al actualizar.',
   })
   @IsOptional()
-  @IsUUID()
-  userId?: string | null;
+  @IsInt()
+  @Min(1)
+  @Max(2147483647)
+  userId?: number | null;
 }

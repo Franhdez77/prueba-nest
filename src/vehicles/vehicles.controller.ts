@@ -1,3 +1,4 @@
+import { ParseIdPipe } from '../common/pipes/parse-id.pipe.js';
 import {
   Body,
   Controller,
@@ -5,7 +6,6 @@ import {
   Get,
   Inject,
   Param,
-  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -64,7 +64,7 @@ export class VehiclesController {
   @ApiSuccess(200, Vehicle)
   @ApiErrors(400, 404)
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id', ParseIdPipe) id: number) {
     return this.vehicles.findOne(id);
   }
 
@@ -78,7 +78,7 @@ export class VehiclesController {
   @ApiErrors(400, 403, 404, 409)
   @Patch(':id')
   update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIdPipe) id: number,
     @Body() dto: UpdateVehicleDto,
   ) {
     return this.vehicles.update(id, dto);
@@ -93,7 +93,7 @@ export class VehiclesController {
   @ApiSuccess(200, Vehicle)
   @ApiErrors(400, 403, 404, 409)
   @Delete(':id')
-  deactivate(@Param('id', ParseUUIDPipe) id: string) {
+  deactivate(@Param('id', ParseIdPipe) id: number) {
     return this.vehicles.deactivate(id);
   }
 }

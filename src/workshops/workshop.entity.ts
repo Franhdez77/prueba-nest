@@ -10,9 +10,9 @@ import { WorkshopStatus } from './workshop-status.enum.js';
 
 @Entity('workshops')
 export class Workshop {
-  @ApiProperty({ format: 'uuid' })
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @ApiProperty({ example: 'Taller Norte' })
   @Column({ type: 'varchar', length: 100 })

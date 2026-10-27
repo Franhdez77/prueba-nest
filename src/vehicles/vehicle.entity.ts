@@ -10,9 +10,9 @@ import { VehicleStatus } from './vehicle-status.enum.js';
 
 @Entity('vehicles')
 export class Vehicle {
-  @ApiProperty({ format: 'uuid' })
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @ApiProperty({ example: 'ABC123' })
   @Column({ type: 'varchar', length: 20, unique: true })

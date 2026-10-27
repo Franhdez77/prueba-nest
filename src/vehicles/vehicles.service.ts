@@ -1,11 +1,10 @@
 import {
   ConflictException,
   Injectable,
+  Inject,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Vehicle } from './vehicle.entity.js';
+import { VehiclesDao } from './vehicles.dao.js';
 import { VehicleStatus } from './vehicle-status.enum.js';
 import type { CreateVehicleDto } from './dto/create-vehicle.dto.js';
 import type { UpdateVehicleDto } from './dto/update-vehicle.dto.js';
@@ -14,51 +13,36 @@ import type { ListVehiclesDto } from './dto/list-vehicles.dto.js';
 @Injectable()
 export class VehiclesService {
   constructor(
-    @InjectRepository(Vehicle) private readonly vehicles: Repository<Vehicle>,
+    @Inject(VehiclesDao) private readonly vehicles: VehiclesDao,
   ) {}
 
   create(dto: CreateVehicleDto) {
-    return this.vehicles.save(
-      this.vehicles.create({
-        plate: dto.plate,
-        brand: dto.brand,
-        model: dto.model,
-        year: dto.year,
-        mileage: dto.mileage,
-        status: VehicleStatus.AVAILABLE,
-      }),
-    );
-  }
-
-  findAll(query: ListVehiclesDto) {
-    return this.vehicles.find({
-      where: query.status ? { status: query.status } : {},
-      order: { createdAt: 'DESC', id: 'ASC' },
+    return this.vehicles.create({
+      plate: dto.plate, brand: dto.brand, model: dto.model,
+      year: dto.year, mileage: dto.mileage, status: VehicleStatus.AVAILABLE,
     });
   }
 
-  async findOne(id: string) {
-    const vehicle = await this.vehicles.findOneBy({ id });
+  findAll(query: ListVehiclesDto) {
+    return this.vehicles.findAll(query.status);
+  }
+
+  async findOne(id: number) {
+    const vehicle = await this.vehicles.findById(id);
     if (!vehicle) throw new NotFoundException('Vehículo no encontrado');
     return vehicle;
   }
 
   async findByPlate(plate: string) {
-    const vehicle = await this.vehicles.findOneBy({
-      plate: plate.trim().toUpperCase(),
-    });
+    const vehicle = await this.vehicles.findByPlate(plate.trim().toUpperCase());
     if (!vehicle) throw new NotFoundException('Vehículo no encontrado');
     return vehicle;
   }
 
-  async update(id: string, dto: UpdateVehicleDto) {
+  async update(id: number, dto: UpdateVehicleDto) {
     // Lock the vehicle row to serialize updates with maintenance operations.
-    return this.vehicles.manager.transaction(async (manager) => {
-      const repository = manager.getRepository(Vehicle);
-      const vehicle = await repository.findOne({
-        where: { id },
-        lock: { mode: 'pessimistic_write' },
-      });
+    return this.vehicles.transaction(async (dao) => {
+      const vehicle = await dao.findLocked(id);
       if (!vehicle) throw new NotFoundException('Vehículo no encontrado');
       if (
         vehicle.status === VehicleStatus.IN_MAINTENANCE &&
@@ -69,11 +53,11 @@ export class VehiclesService {
         );
       }
       Object.assign(vehicle, dto);
-      return repository.save(vehicle);
+      return dao.save(vehicle);
     });
   }
 
-  deactivate(id: string) {
+  deactivate(id: number) {
     // Deactivate the record while preserving its identity and historical relationships.
     return this.update(id, { status: VehicleStatus.INACTIVE });
   }

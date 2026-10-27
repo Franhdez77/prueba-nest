@@ -11,9 +11,9 @@ import { MaintenanceStatus, MaintenanceType } from './maintenance.enums.js';
 @Index('IX_maintenance_vehicle_history', ['vehicleId', 'scheduledStart'])
 @Entity('maintenances')
 export class Maintenance {
-  @ApiProperty({ format: 'uuid' })
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @ApiProperty({ enum: MaintenanceType })
   @Column({ type: 'enum', enum: MaintenanceType, enumName: 'maintenance_type' })
@@ -39,27 +39,27 @@ export class Maintenance {
   @Column({ type: 'enum', enum: MaintenanceStatus, enumName: 'maintenance_status', default: MaintenanceStatus.SCHEDULED })
   status: MaintenanceStatus;
 
-  @ApiProperty({ format: 'uuid' })
-  @Column({ name: 'vehicle_id', type: 'uuid' })
-  vehicleId: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @Column({ name: 'vehicle_id', type: 'integer' })
+  vehicleId: number;
 
   @ApiProperty({ type: () => Vehicle })
   @ManyToOne(() => Vehicle, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'vehicle_id' })
   vehicle: Vehicle;
 
-  @ApiProperty({ format: 'uuid' })
-  @Column({ name: 'mechanic_id', type: 'uuid' })
-  mechanicId: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @Column({ name: 'mechanic_id', type: 'integer' })
+  mechanicId: number;
 
   @ApiProperty({ type: () => Mechanic })
   @ManyToOne(() => Mechanic, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'mechanic_id' })
   mechanic: Mechanic;
 
-  @ApiProperty({ format: 'uuid' })
-  @Column({ name: 'workshop_id', type: 'uuid' })
-  workshopId: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @Column({ name: 'workshop_id', type: 'integer' })
+  workshopId: number;
 
   @ApiProperty({ type: () => Workshop })
   @ManyToOne(() => Workshop, { onDelete: 'RESTRICT' })

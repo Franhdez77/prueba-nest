@@ -1,3 +1,4 @@
+import { MaintenancesDao } from './maintenances.dao.js';
 import { jest } from '@jest/globals';
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { EntityManager, ObjectLiteral, Repository } from 'typeorm';
@@ -37,9 +38,9 @@ function mockQuery() {
   return query;
 }
 
-const actor: PublicUser = { id: 'user-id', name: 'Técnico', email: 'tech@example.com', role: Role.TECHNICIAN, createdAt: new Date() };
-const admin: PublicUser = { ...actor, id: 'admin-id', role: Role.ADMIN };
-const dto = { type: MaintenanceType.PREVENTIVE, description: 'Revisión de frenos', mileage: 45000, vehicleId: 'vehicle-id', mechanicId: 'mechanic-id', workshopId: 'workshop-id', scheduledStart: '2026-11-01T07:30:00-05:00', scheduledEnd: '2026-11-01T09:00:00-05:00' };
+const actor: PublicUser = { id: 2, name: 'Técnico', email: 'tech@example.com', role: Role.TECHNICIAN, createdAt: new Date() };
+const admin: PublicUser = { ...actor, id: 1, role: Role.ADMIN };
+const dto = { type: MaintenanceType.PREVENTIVE, description: 'Revisión de frenos', mileage: 45000, vehicleId: 1, mechanicId: 1, workshopId: 1, scheduledStart: '2026-11-01T07:30:00-05:00', scheduledEnd: '2026-11-01T09:00:00-05:00' };
 
 describe('MaintenancesService', () => {
   let service: MaintenancesService;
@@ -65,7 +66,7 @@ describe('MaintenancesService', () => {
     vehicle = Object.assign(new Vehicle(), { id: dto.vehicleId, mileage: 45000, status: VehicleStatus.AVAILABLE });
     mechanic = Object.assign(new Mechanic(), { id: dto.mechanicId, userId: actor.id, status: MechanicStatus.ACTIVE });
     workshop = Object.assign(new Workshop(), { id: dto.workshopId, status: WorkshopStatus.ACTIVE });
-    maintenance = Object.assign(new Maintenance(), { id: 'maintenance-id', status: Status.SCHEDULED, vehicleId: vehicle.id, mechanicId: mechanic.id, workshopId: workshop.id, mileage: 45000, startedAt: new Date('2026-11-01T12:30:00Z'), vehicle, mechanic, workshop });
+    maintenance = Object.assign(new Maintenance(), { id: 1, status: Status.SCHEDULED, vehicleId: vehicle.id, mechanicId: mechanic.id, workshopId: workshop.id, mileage: 45000, startedAt: new Date('2026-11-01T12:30:00Z'), vehicle, mechanic, workshop });
     vehicles.findOne.mockResolvedValue(vehicle);
     vehicles.findOneOrFail.mockResolvedValue(vehicle);
     vehicles.existsBy.mockResolvedValue(true);
@@ -87,7 +88,7 @@ describe('MaintenancesService', () => {
     } } as unknown as EntityManager;
     transaction = jest.fn<(callback: (manager: EntityManager) => Promise<unknown>) => Promise<unknown>>().mockImplementation(callback => callback(manager));
     const repository = Object.assign(maintenances, { createQueryBuilder: () => query, manager: { ...manager, transaction } });
-    service = new MaintenancesService(repository as unknown as Repository<Maintenance>);
+    service = new MaintenancesService(new MaintenancesDao(repository as unknown as Repository<Maintenance>));
   });
 
   it('reserva mediante transacción y registra autor y estado inicial', async () => {
@@ -127,10 +128,10 @@ describe('MaintenancesService', () => {
   });
 
   it('aplica el ámbito del técnico junto con todos los filtros solicitados', async () => {
-    await service.findAll({ status: Status.SCHEDULED, type: MaintenanceType.PREVENTIVE, vehicleId: 'v', mechanicId: 'other', active: 'true' }, actor);
+    await service.findAll({ status: Status.SCHEDULED, type: MaintenanceType.PREVENTIVE, vehicleId: 3, mechanicId: 4, active: 'true' }, actor);
     expect(query.andWhere).toHaveBeenCalledWith('mechanic.userId = :userId', { userId: actor.id });
-    expect(query.andWhere).toHaveBeenCalledWith('m.mechanicId = :mechanicId', { mechanicId: 'other' });
-    expect(query.andWhere).toHaveBeenCalledWith('m.vehicleId = :vehicleId', { vehicleId: 'v' });
+    expect(query.andWhere).toHaveBeenCalledWith('m.mechanicId = :mechanicId', { mechanicId: 4 });
+    expect(query.andWhere).toHaveBeenCalledWith('m.vehicleId = :vehicleId', { vehicleId: 3 });
     expect(query.andWhere).toHaveBeenCalledWith('m.status = :status', { status: Status.SCHEDULED });
     expect(query.andWhere).toHaveBeenCalledWith('m.type = :type', { type: MaintenanceType.PREVENTIVE });
     expect(query.andWhere).toHaveBeenCalledWith(expect.stringContaining('IN ('), expect.any(Object));
@@ -145,20 +146,20 @@ describe('MaintenancesService', () => {
   it('restringe detalles de intervenciones ajenas y responde 404 si no existen', async () => {
     expect(await service.findOne(maintenance.id, actor)).toBe(maintenance);
     expect(await service.findOne(maintenance.id, admin)).toBe(maintenance);
-    await expect(service.findOne(maintenance.id, { ...actor, id: 'outsider' })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.findOne(maintenance.id, { ...actor, id: 99 })).rejects.toBeInstanceOf(ForbiddenException);
     maintenances.findOne.mockResolvedValue(null);
-    await expect(service.findOne('missing', admin)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.findOne(999999, admin)).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('valida vehículos y mecánicos antes de devolver historiales', async () => {
     await service.history(vehicle.id, actor);
     expect(query.andWhere).toHaveBeenCalledWith('m.vehicleId = :vehicleId', { vehicleId: vehicle.id });
     vehicles.existsBy.mockResolvedValue(false);
-    await expect(service.history('missing', admin)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.history(999999, admin)).rejects.toBeInstanceOf(NotFoundException);
     await service.byMechanic(mechanic.id, actor);
-    await expect(service.byMechanic(mechanic.id, { ...actor, id: 'outsider' })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.byMechanic(mechanic.id, { ...actor, id: 99 })).rejects.toBeInstanceOf(ForbiddenException);
     mechanics.findOneBy.mockResolvedValue(null);
-    await expect(service.byMechanic('missing', admin)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.byMechanic(999999, admin)).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('consulta la auditoría del mantenimiento existente', async () => {
@@ -167,11 +168,11 @@ describe('MaintenancesService', () => {
   });
 
   it('rechaza transiciones de usuarios ajenos antes de escribir', async () => {
-    await expect(service.updateStatus(maintenance.id, { status: Status.IN_PROGRESS }, { ...actor, id: 'outsider' })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.updateStatus(maintenance.id, { status: Status.IN_PROGRESS }, { ...actor, id: 99 })).rejects.toBeInstanceOf(ForbiddenException);
     expect(vehicles.save).not.toHaveBeenCalled();
     expect(audits.save).not.toHaveBeenCalled();
     maintenances.findOne.mockResolvedValue(null);
-    await expect(service.updateStatus('missing', { status: Status.IN_PROGRESS }, admin)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.updateStatus(999999, { status: Status.IN_PROGRESS }, admin)).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it.each([Status.COMPLETED, Status.CANCELLED])('no reabre el estado final %s', async (status) => {

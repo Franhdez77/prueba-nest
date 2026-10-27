@@ -5,16 +5,16 @@ export class CreateMaintenances1793100005000 implements MigrationInterface {
     await queryRunner.query(`CREATE TYPE "maintenance_type" AS ENUM ('PREVENTIVE', 'CORRECTIVE')`);
     await queryRunner.query(`CREATE TYPE "maintenance_status" AS ENUM ('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')`);
     await queryRunner.query(`CREATE TABLE "maintenances" (
-      "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+      "id" SERIAL NOT NULL,
       "type" "maintenance_type" NOT NULL,
       "description" text NOT NULL,
       "mileage" integer NOT NULL,
       "scheduled_start" timestamptz NOT NULL,
       "scheduled_end" timestamptz NOT NULL,
       "status" "maintenance_status" NOT NULL DEFAULT 'SCHEDULED',
-      "vehicle_id" uuid NOT NULL REFERENCES "vehicles"("id") ON DELETE RESTRICT,
-      "mechanic_id" uuid NOT NULL REFERENCES "mechanics"("id") ON DELETE RESTRICT,
-      "workshop_id" uuid NOT NULL REFERENCES "workshops"("id") ON DELETE RESTRICT,
+      "vehicle_id" integer NOT NULL REFERENCES "vehicles"("id") ON DELETE RESTRICT,
+      "mechanic_id" integer NOT NULL REFERENCES "mechanics"("id") ON DELETE RESTRICT,
+      "workshop_id" integer NOT NULL REFERENCES "workshops"("id") ON DELETE RESTRICT,
       "started_at" timestamptz,
       "work_performed" text,
       "final_cost" numeric(12,2),
@@ -38,9 +38,9 @@ export class CreateMaintenances1793100005000 implements MigrationInterface {
     await queryRunner.query(`CREATE INDEX "IX_maintenance_mechanic_schedule" ON "maintenances" ("mechanic_id", "scheduled_start", "scheduled_end") WHERE "status" IN ('SCHEDULED', 'IN_PROGRESS')`);
     await queryRunner.query(`CREATE INDEX "IX_maintenance_vehicle_history" ON "maintenances" ("vehicle_id", "scheduled_start")`);
     await queryRunner.query(`CREATE TABLE "maintenance_audits" (
-      "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-      "maintenance_id" uuid NOT NULL REFERENCES "maintenances"("id") ON DELETE RESTRICT,
-      "actor_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE RESTRICT,
+      "id" SERIAL NOT NULL,
+      "maintenance_id" integer NOT NULL REFERENCES "maintenances"("id") ON DELETE RESTRICT,
+      "actor_id" integer NOT NULL REFERENCES "users"("id") ON DELETE RESTRICT,
       "from_status" "maintenance_status",
       "to_status" "maintenance_status" NOT NULL,
       "created_at" timestamptz NOT NULL DEFAULT now(),

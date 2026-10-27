@@ -1,4 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { MaintenancesService } from '../src/maintenances/maintenances.service.js';
+import type { CreateMaintenanceDto } from '../src/maintenances/dto/create-maintenance.dto.js';
+import { randomBytes } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import { DataSource, In } from 'typeorm';
@@ -32,15 +34,15 @@ describe('Mantenimientos (e2e)', () => {
   let workshop: Workshop;
   let otherWorkshop: Workshop;
   let inactiveWorkshop: Workshop;
-  const suffix = randomUUID();
-  const userIds: string[] = [];
-  const vehicleIds: string[] = [];
-  const mechanicIds: string[] = [];
-  const workshopIds: string[] = [];
+  const suffix = randomBytes(8).toString('hex');
+  const userIds: number[] = [];
+  const vehicleIds: number[] = [];
+  const mechanicIds: number[] = [];
+  const workshopIds: number[] = [];
   let serial = 0;
 
   const send = (payload: object, token = adminToken) => request(app.getHttpServer()).post('/maintenances').set('Authorization', `Bearer ${token}`).send(payload);
-  const change = (id: string, payload: object, token = adminToken) => request(app.getHttpServer()).patch(`/maintenances/${id}/status`).set('Authorization', `Bearer ${token}`).send(payload);
+  const change = (id: number, payload: object, token = adminToken) => request(app.getHttpServer()).patch(`/maintenances/${id}/status`).set('Authorization', `Bearer ${token}`).send(payload);
   const get = (path: string, token = adminToken) => request(app.getHttpServer()).get(path).set('Authorization', `Bearer ${token}`);
 
   async function payload(day: number, start = '07:30', end = '09:00') {
@@ -62,9 +64,9 @@ describe('Mantenimientos (e2e)', () => {
       const user = await users.save(users.create({ name: `Prueba ${index}`, email: `maintenance-${suffix}-${index}@example.com`, passwordHash: 'unused', role }));
       userIds.push(user.id);
     }
-    adminToken = await jwt.signAsync({ sub: userIds[0] });
-    techToken = await jwt.signAsync({ sub: userIds[1] });
-    otherToken = await jwt.signAsync({ sub: userIds[2] });
+    adminToken = await jwt.signAsync({ sub: String(userIds[0]) });
+    techToken = await jwt.signAsync({ sub: String(userIds[1]) });
+    otherToken = await jwt.signAsync({ sub: String(userIds[2]) });
     const mechanics = db.getRepository(Mechanic);
     for (let index = 0; index < 3; index++) {
       const record = await mechanics.save(mechanics.create({ name: `Mecánico ${index}`, email: `maintenance-mechanic-${suffix}-${index}@example.com`, specialty: 'Motor', userId: index < 2 ? userIds[index + 1] : null, status: index === 2 ? MechanicStatus.INACTIVE : MechanicStatus.ACTIVE }));
@@ -105,7 +107,7 @@ describe('Mantenimientos (e2e)', () => {
 
   it('rechaza recursos inexistentes o inactivos y kilometraje inferior', async () => {
     const body = await payload(2);
-    for (const field of ['vehicleId', 'mechanicId', 'workshopId']) await send({ ...body, [field]: randomUUID() }).expect(404);
+    for (const field of ['vehicleId', 'mechanicId', 'workshopId']) await send({ ...body, [field]: 999999 }).expect(404);
     await send({ ...body, mechanicId: inactiveMechanic.id }).expect(409);
     await send({ ...body, workshopId: inactiveWorkshop.id }).expect(409);
     await db.getRepository(Vehicle).update(body.vehicleId, { status: VehicleStatus.INACTIVE });
@@ -121,6 +123,7 @@ describe('Mantenimientos (e2e)', () => {
     await send({ ...body, scheduledStart: '2027-11-03T07:30:00' }).expect(400);
     await send({ ...body, type: 'UNKNOWN' }).expect(400);
     await send({ ...body, status: 'COMPLETED' }).expect(400);
+    for (const id of [0, -1, 1.5, '1', 2147483648]) await send({ ...body, vehicleId: id }).expect(400);
   });
 
   it('permite pendientes consecutivos y rechaza cruces en cualquier taller', async () => {
@@ -152,8 +155,8 @@ describe('Mantenimientos (e2e)', () => {
     const assigned = (await send(await payload(8)).expect(201)).body.data;
     const foreign = (await send({ ...await payload(8), mechanicId: otherMechanic.id }).expect(201)).body.data;
     const ownList = await get('/maintenances/mine', techToken).expect(200);
-    expect(ownList.body.data.some((m: { id: string }) => m.id === assigned.id)).toBe(true);
-    expect(ownList.body.data.every((m: { mechanicId: string }) => m.mechanicId === mechanic.id)).toBe(true);
+    expect(ownList.body.data.some((m: { id: number }) => m.id === assigned.id)).toBe(true);
+    expect(ownList.body.data.every((m: { mechanicId: number }) => m.mechanicId === mechanic.id)).toBe(true);
     const root = await get(`/maintenances?mechanicId=${otherMechanic.id}`, techToken).expect(200);
     expect(root.body.data).toEqual([]);
     await get(`/maintenances/${foreign.id}`, techToken).expect(403);
@@ -248,9 +251,30 @@ describe('Mantenimientos (e2e)', () => {
     const closed = await get('/maintenances?active=false&type=PREVENTIVE').expect(200);
     expect(closed.body.data.every((m: { status: string }) => ['COMPLETED', 'CANCELLED'].includes(m.status))).toBe(true);
     for (const value of ['incorrecto', '1', '0']) await get(`/maintenances?active=${value}`).expect(400);
+    await get('/maintenances?vehicleId=0').expect(400);
+    await get('/maintenances?mechanicId=2147483648').expect(400);
     await get('/maintenances/incorrecto').expect(400);
-    await get(`/maintenances/${randomUUID()}`).expect(404);
-    await get(`/maintenances/vehicle/${randomUUID()}/history`).expect(404);
-    await get(`/maintenances/mechanic/${randomUUID()}`).expect(404);
+    await get(`/maintenances/${999999}`).expect(404);
+    await get(`/maintenances/vehicle/${999999}/history`).expect(404);
+    await get(`/maintenances/mechanic/${999999}`).expect(404);
   });
+  it('rolls back all DAO writes when the audit insert fails', async () => {
+    const service = app.get(MaintenancesService);
+    const input = await payload(28);
+    const invalidActor = { id: 0, name: 'Missing actor', email: 'missing@example.com', role: Role.ADMIN, createdAt: new Date() };
+    // A missing audit actor forces a real foreign-key failure after persistence.
+    await expect(service.create(input as CreateMaintenanceDto, invalidActor)).rejects.toMatchObject({ driverError: { code: '23503' } });
+    expect(await db.getRepository(Maintenance).countBy({ vehicleId: input.vehicleId })).toBe(0);
+
+    const record = (await send(input).expect(201)).body.data;
+    await expect(service.updateStatus(record.id, { status: Status.IN_PROGRESS }, invalidActor)).rejects.toMatchObject({ driverError: { code: '23503' } });
+    const stored = await db.getRepository(Maintenance).findOneByOrFail({ id: record.id });
+    const vehicle = await db.getRepository(Vehicle).findOneByOrFail({ id: input.vehicleId });
+    expect(stored.status).toBe(Status.SCHEDULED);
+    expect(stored.startedAt).toBeNull();
+    expect(vehicle.status).toBe(VehicleStatus.AVAILABLE);
+    expect(vehicle.mileage).toBe(45000);
+    expect(await db.getRepository(MaintenanceAudit).countBy({ maintenanceId: record.id })).toBe(1);
+  });
+
 });

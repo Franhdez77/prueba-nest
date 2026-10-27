@@ -1,14 +1,9 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, In, Repository } from 'typeorm';
-import { Maintenance } from './maintenance.entity.js';
-import { MaintenanceAudit } from './maintenance-audit.entity.js';
-import { ACTIVE_MAINTENANCE_STATUSES, MaintenanceStatus } from './maintenance.enums.js';
-import { Vehicle } from '../vehicles/vehicle.entity.js';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { MaintenancesDao } from './maintenances.dao.js';
+import { MaintenanceStatus } from './maintenance.enums.js';
 import { VehicleStatus } from '../vehicles/vehicle-status.enum.js';
 import { Mechanic } from '../mechanics/mechanic.entity.js';
 import { MechanicStatus } from '../mechanics/mechanic-status.enum.js';
-import { Workshop } from '../workshops/workshop.entity.js';
 import { WorkshopStatus } from '../workshops/workshop-status.enum.js';
 import { Role } from '../users/role.enum.js';
 import type { PublicUser } from '../users/user.entity.js';
@@ -20,14 +15,8 @@ import { assertTransition, closingData, scheduleInterval } from './maintenance.r
 @Injectable()
 export class MaintenancesService {
   constructor(
-    @InjectRepository(Maintenance) private readonly maintenances: Repository<Maintenance>,
+    @Inject(MaintenancesDao) private readonly maintenances: MaintenancesDao,
   ) {}
-
-  private detail(manager: EntityManager, id: string) {
-    return manager.getRepository(Maintenance).findOneOrFail({
-      where: { id }, relations: { vehicle: true, mechanic: true, workshop: true },
-    });
-  }
 
   private assertOwner(user: PublicUser, mechanic: Mechanic) {
     if (user.role !== Role.ADMIN && mechanic.userId !== user.id) {
@@ -35,126 +24,101 @@ export class MaintenancesService {
     }
   }
 
-  private audit(manager: EntityManager, maintenanceId: string, actorId: string, fromStatus: MaintenanceStatus | null, toStatus: MaintenanceStatus) {
-    const audits = manager.getRepository(MaintenanceAudit);
-    return audits.save(audits.create({ maintenanceId, actorId, fromStatus, toStatus }));
-  }
-
   async create(dto: CreateMaintenanceDto, user: PublicUser) {
     const interval = scheduleInterval(dto.scheduledStart, dto.scheduledEnd);
     // Lock mechanic, vehicle, and workshop rows in that order to serialize reservations.
     // Commit or roll back the maintenance record and its audit entry together.
-    return this.maintenances.manager.transaction(async (manager) => {
-      const mechanic = await manager.getRepository(Mechanic).findOne({ where: { id: dto.mechanicId }, lock: { mode: 'pessimistic_write' } });
+    return this.maintenances.transaction(async (dao) => {
+      const mechanic = await dao.mechanics.findLocked(dto.mechanicId);
       if (!mechanic) throw new NotFoundException('Mecánico no encontrado');
       if (mechanic.status !== MechanicStatus.ACTIVE) throw new ConflictException('El mecánico está inactivo');
-      const vehicle = await manager.getRepository(Vehicle).findOne({ where: { id: dto.vehicleId }, lock: { mode: 'pessimistic_write' } });
+      const vehicle = await dao.vehicles.findLocked(dto.vehicleId);
       if (!vehicle) throw new NotFoundException('Vehículo no encontrado');
       if (vehicle.status !== VehicleStatus.AVAILABLE) throw new ConflictException('El vehículo no está disponible');
-      const workshop = await manager.getRepository(Workshop).findOne({ where: { id: dto.workshopId }, lock: { mode: 'pessimistic_write' } });
+      const workshop = await dao.workshops.findLocked(dto.workshopId);
       if (!workshop) throw new NotFoundException('Taller no encontrado');
       if (workshop.status !== WorkshopStatus.ACTIVE) throw new ConflictException('El taller está inactivo');
       if (dto.mileage < vehicle.mileage) throw new ConflictException('El kilometraje no puede ser inferior al actual del vehículo');
-      const repository = manager.getRepository(Maintenance);
-      if (await repository.existsBy({ vehicleId: vehicle.id, status: In(ACTIVE_MAINTENANCE_STATUSES) })) {
+      if (await dao.hasActiveVehicle(vehicle.id)) {
         throw new ConflictException('El vehículo ya tiene un mantenimiento activo');
       }
-      // Use half-open intervals [start, end) so consecutive bookings do not overlap.
-      const overlap = await repository.createQueryBuilder('m')
-        .where('m.mechanicId = :mechanicId', { mechanicId: mechanic.id })
-        .andWhere('m.status IN (:...statuses)', { statuses: ACTIVE_MAINTENANCE_STATUSES })
-        .andWhere('m.scheduledStart < :end AND m.scheduledEnd > :start', { start: interval.scheduledStart, end: interval.scheduledEnd })
-        .getExists();
+      const overlap = await dao.hasOverlap(mechanic.id, interval.scheduledStart, interval.scheduledEnd);
       if (overlap) throw new ConflictException('El mecánico tiene otro mantenimiento que se cruza con ese horario');
-      const maintenance = await repository.save(repository.create({
+      const maintenance = await dao.create({
         type: dto.type, description: dto.description, mileage: dto.mileage,
         ...interval, vehicleId: vehicle.id, mechanicId: mechanic.id, workshopId: workshop.id,
         status: MaintenanceStatus.SCHEDULED,
-      }));
-      await this.audit(manager, maintenance.id, user.id, null, maintenance.status);
-      return this.detail(manager, maintenance.id);
+      });
+      await dao.audits.create({ maintenanceId: maintenance.id, actorId: user.id, fromStatus: null, toStatus: maintenance.status });
+      return dao.detail(maintenance.id);
     });
   }
 
   findAll(query: ListMaintenancesDto, user: PublicUser) {
-    const builder = this.maintenances.createQueryBuilder('m')
-      .leftJoinAndSelect('m.vehicle', 'vehicle')
-      .leftJoinAndSelect('m.mechanic', 'mechanic')
-      .leftJoinAndSelect('m.workshop', 'workshop');
-    if (user.role !== Role.ADMIN) builder.andWhere('mechanic.userId = :userId', { userId: user.id });
-    if (query.status) builder.andWhere('m.status = :status', { status: query.status });
-    if (query.type) builder.andWhere('m.type = :type', { type: query.type });
-    if (query.vehicleId) builder.andWhere('m.vehicleId = :vehicleId', { vehicleId: query.vehicleId });
-    if (query.mechanicId) builder.andWhere('m.mechanicId = :mechanicId', { mechanicId: query.mechanicId });
-    if (query.active !== undefined) {
-      builder.andWhere(query.active === 'true' ? 'm.status IN (:...activeStatuses)' : 'm.status NOT IN (:...activeStatuses)', { activeStatuses: ACTIVE_MAINTENANCE_STATUSES });
-    }
-    return builder.orderBy('m.scheduledStart', 'DESC').addOrderBy('m.id', 'ASC').getMany();
+    return this.maintenances.findAll(query, user.role === Role.ADMIN ? undefined : user.id);
   }
 
-  async findOne(id: string, user: PublicUser) {
-    const maintenance = await this.maintenances.findOne({ where: { id }, relations: { vehicle: true, mechanic: true, workshop: true } });
+  async findOne(id: number, user: PublicUser) {
+    const maintenance = await this.maintenances.findById(id);
     if (!maintenance) throw new NotFoundException('Mantenimiento no encontrado');
     this.assertOwner(user, maintenance.mechanic);
     return maintenance;
   }
 
-  async history(vehicleId: string, user: PublicUser) {
-    if (!await this.maintenances.manager.getRepository(Vehicle).existsBy({ id: vehicleId })) {
+  async history(vehicleId: number, user: PublicUser) {
+    if (!await this.maintenances.vehicles.exists(vehicleId)) {
       throw new NotFoundException('Vehículo no encontrado');
     }
     return this.findAll({ vehicleId }, user);
   }
 
-  async byMechanic(mechanicId: string, user: PublicUser) {
-    const mechanic = await this.maintenances.manager.getRepository(Mechanic).findOneBy({ id: mechanicId });
+  async byMechanic(mechanicId: number, user: PublicUser) {
+    const mechanic = await this.maintenances.mechanics.findById(mechanicId);
     if (!mechanic) throw new NotFoundException('Mecánico no encontrado');
     this.assertOwner(user, mechanic);
     return this.findAll({ mechanicId }, user);
   }
 
-  async audits(id: string, user: PublicUser) {
+  async audits(id: number, user: PublicUser) {
     await this.findOne(id, user);
-    return this.maintenances.manager.getRepository(MaintenanceAudit).find({ where: { maintenanceId: id }, order: { createdAt: 'ASC', id: 'ASC' } });
+    return this.maintenances.audits.findByMaintenance(id);
   }
 
-  updateStatus(id: string, dto: UpdateMaintenanceStatusDto, user: PublicUser) {
+  updateStatus(id: number, dto: UpdateMaintenanceStatusDto, user: PublicUser) {
     // Update the maintenance status, vehicle availability, mileage, and audit atomically.
-    return this.maintenances.manager.transaction(async (manager) => {
-      const repository = manager.getRepository(Maintenance);
-      const maintenance = await repository.findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
+    return this.maintenances.transaction(async (dao) => {
+      const maintenance = await dao.findLocked(id);
       if (!maintenance) throw new NotFoundException('Mantenimiento no encontrado');
-      const mechanic = await manager.getRepository(Mechanic).findOneOrFail({ where: { id: maintenance.mechanicId }, lock: { mode: 'pessimistic_write' } });
+      const mechanic = await dao.mechanics.findLockedOrFail(maintenance.mechanicId);
       this.assertOwner(user, mechanic);
       assertTransition(maintenance.status, dto.status);
       const hasClosingData = [dto.workPerformed, dto.finalCost, dto.finishedAt, dto.finalMileage].some(value => value !== undefined);
       if (dto.status !== MaintenanceStatus.COMPLETED && hasClosingData) throw new BadRequestException('Los datos de cierre solo se admiten al completar');
-      const vehicles = manager.getRepository(Vehicle);
-      const vehicle = await vehicles.findOneOrFail({ where: { id: maintenance.vehicleId }, lock: { mode: 'pessimistic_write' } });
+      const vehicle = await dao.vehicles.findLockedOrFail(maintenance.vehicleId);
       if (dto.status === MaintenanceStatus.IN_PROGRESS) {
         if (mechanic.status !== MechanicStatus.ACTIVE) throw new ConflictException('El mecánico está inactivo');
         if (vehicle.status !== VehicleStatus.AVAILABLE) throw new ConflictException('El vehículo no está disponible');
-        const workshop = await manager.getRepository(Workshop).findOneOrFail({ where: { id: maintenance.workshopId }, lock: { mode: 'pessimistic_write' } });
+        const workshop = await dao.workshops.findLockedOrFail(maintenance.workshopId);
         if (workshop.status !== WorkshopStatus.ACTIVE) throw new ConflictException('El taller está inactivo');
-        if (await repository.existsBy({ mechanicId: mechanic.id, status: MaintenanceStatus.IN_PROGRESS })) {
+        if (await dao.hasRunningMechanic(mechanic.id)) {
           throw new ConflictException('El mecánico ya tiene un mantenimiento en proceso');
         }
         maintenance.startedAt = new Date();
         vehicle.status = VehicleStatus.IN_MAINTENANCE;
-        await vehicles.save(vehicle);
+        await dao.vehicles.save(vehicle);
       }
       if (dto.status === MaintenanceStatus.COMPLETED) {
         const closing = closingData(dto, Math.max(vehicle.mileage, maintenance.mileage), maintenance.startedAt);
         Object.assign(maintenance, closing);
         vehicle.mileage = closing.finalMileage;
         vehicle.status = VehicleStatus.AVAILABLE;
-        await vehicles.save(vehicle);
+        await dao.vehicles.save(vehicle);
       }
       const previous = maintenance.status;
       maintenance.status = dto.status;
-      await repository.save(maintenance);
-      await this.audit(manager, maintenance.id, user.id, previous, maintenance.status);
-      return this.detail(manager, id);
+      await dao.save(maintenance);
+      await dao.audits.create({ maintenanceId: maintenance.id, actorId: user.id, fromStatus: previous, toStatus: maintenance.status });
+      return dao.detail(id);
     });
   }
 }

@@ -8,7 +8,6 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
-import { isUUID } from 'class-validator';
 import { UsersService } from '../../users/users.service.js';
 import { publicUser } from '../../users/user.entity.js';
 import { IS_PUBLIC } from '../decorators/public.decorator.js';
@@ -42,14 +41,18 @@ export class JwtAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const match = /^Bearer (\S+)$/i.exec(request.headers.authorization ?? '');
     if (!match) throw new UnauthorizedException('Se requiere un token Bearer');
-    let subject: string;
+    let subject: number;
     try {
-      const payload = await this.jwt.verifyAsync<{ sub: string }>(match[1], {
+      const payload = await this.jwt.verifyAsync<{ sub: unknown }>(match[1], {
         algorithms: ['HS256'],
       });
-      if (typeof payload.sub !== 'string' || !isUUID(payload.sub))
+      if (typeof payload.sub !== 'string' || !/^[1-9]\d*$/.test(payload.sub)) {
         throw new Error('Invalid subject');
-      subject = payload.sub;
+      }
+      subject = Number(payload.sub);
+      if (!Number.isSafeInteger(subject) || subject > 2147483647) {
+        throw new Error('Invalid subject');
+      }
     } catch {
       throw new UnauthorizedException('Token inválido o expirado');
     }

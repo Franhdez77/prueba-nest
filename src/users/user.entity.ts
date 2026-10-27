@@ -8,14 +8,17 @@ import { Role } from './role.enum.js';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column({ type: 'varchar', length: 100 })
   name: string;
 
   @Column({ type: 'varchar', length: 254, unique: true })
   email: string;
+
+  @Column({ name: 'github_id', type: 'varchar', length: 30, nullable: true, unique: true, select: false })
+  githubId: string | null;
 
   @Column({ name: 'password_hash', type: 'text', select: false })
   passwordHash: string;

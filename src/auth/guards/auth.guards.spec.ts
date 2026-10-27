@@ -37,7 +37,7 @@ function contextFor(handler: Function, controller: Function, headers: Record<str
   return { context, request };
 }
 
-const id = '10000000-0000-4000-8000-000000000001';
+const id = 1;
 const user = Object.assign(new User(), { id, name: 'Técnico', email: 'tech@example.com', role: Role.TECHNICIAN, createdAt: new Date(), passwordHash: 'private' });
 const reflector = new Reflector();
 const jwt = new JwtService({ secret: 'test-secret-used-only-by-unit-tests' });
@@ -59,9 +59,9 @@ describe('JwtAuthGuard', () => {
     expect(users.findById).not.toHaveBeenCalled();
   });
 
-  it('rechaza tokens inválidos, expirados, con otra firma o sin un sujeto UUID', async () => {
+  it('rechaza tokens inválidos, expirados, con otra firma o sin un ID numérico válido', async () => {
     const otherJwt = new JwtService({ secret: 'other-secret' });
-    for (const token of ['invalid', await jwt.signAsync({ sub: id }, { expiresIn: -1 }), await otherJwt.signAsync({ sub: id }), await jwt.signAsync({ sub: 'invalid' }), await jwt.signAsync({}), await jwt.signAsync({ sub: 123 })]) {
+    for (const token of ['invalid', await jwt.signAsync({ sub: String(id) }, { expiresIn: -1 }), await otherJwt.signAsync({ sub: String(id) }), await jwt.signAsync({ sub: 'invalid' }), await jwt.signAsync({}), await jwt.signAsync({ sub: 123 }), ...['0', '-1', '1.5', '2147483648', '9007199254740992'].map(sub => jwt.sign({ sub }))]) {
       const { context } = contextFor(Endpoints.prototype.plain, Endpoints, { authorization: `Bearer ${token}` });
       await expect(guard.canActivate(context)).rejects.toBeInstanceOf(UnauthorizedException);
     }
@@ -70,13 +70,13 @@ describe('JwtAuthGuard', () => {
 
   it('rechaza tokens cuyo usuario ya no existe', async () => {
     users.findById.mockResolvedValue(null);
-    const { context } = contextFor(Endpoints.prototype.plain, Endpoints, { authorization: `Bearer ${await jwt.signAsync({ sub: id })}` });
+    const { context } = contextFor(Endpoints.prototype.plain, Endpoints, { authorization: `Bearer ${await jwt.signAsync({ sub: String(id) })}` });
     await expect(guard.canActivate(context)).rejects.toThrow('Usuario no disponible');
   });
 
   it('usa el rol vigente en la base y no expone el hash', async () => {
     users.findById.mockResolvedValue(user);
-    const { context, request } = contextFor(Endpoints.prototype.plain, Endpoints, { authorization: `Bearer ${await jwt.signAsync({ sub: id, role: Role.ADMIN })}` });
+    const { context, request } = contextFor(Endpoints.prototype.plain, Endpoints, { authorization: `Bearer ${await jwt.signAsync({ sub: String(id), role: Role.ADMIN })}` });
     expect(await guard.canActivate(context)).toBe(true);
     expect(request.user?.role).toBe(Role.TECHNICIAN);
     expect(request.user).not.toHaveProperty('passwordHash');
@@ -85,7 +85,7 @@ describe('JwtAuthGuard', () => {
   it('no disfraza fallos de persistencia como credenciales inválidas', async () => {
     const failure = new Error('database offline');
     users.findById.mockRejectedValue(failure);
-    const { context } = contextFor(Endpoints.prototype.plain, Endpoints, { authorization: `Bearer ${await jwt.signAsync({ sub: id })}` });
+    const { context } = contextFor(Endpoints.prototype.plain, Endpoints, { authorization: `Bearer ${await jwt.signAsync({ sub: String(id) })}` });
     await expect(guard.canActivate(context)).rejects.toBe(failure);
   });
 });

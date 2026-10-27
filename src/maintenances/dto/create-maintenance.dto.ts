@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsEnum, IsInt, IsISO8601, IsString, IsUUID, Length, Matches, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsISO8601, IsString, Length, Matches, Max, Min } from 'class-validator';
 import { MaintenanceType } from '../maintenance.enums.js';
 
 export class CreateMaintenanceDto {
@@ -30,15 +30,21 @@ export class CreateMaintenanceDto {
   @Matches(/(Z|[+-]\d{2}:\d{2})$/)
   scheduledEnd: string;
 
-  @ApiProperty({ format: 'uuid' })
-  @IsUUID()
-  vehicleId: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  @Max(2147483647)
+  vehicleId: number;
 
-  @ApiProperty({ format: 'uuid' })
-  @IsUUID()
-  mechanicId: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  @Max(2147483647)
+  mechanicId: number;
 
-  @ApiProperty({ format: 'uuid' })
-  @IsUUID()
-  workshopId: string;
+  @ApiProperty({ type: Number, minimum: 1 })
+  @IsInt()
+  @Min(1)
+  @Max(2147483647)
+  workshopId: number;
 }

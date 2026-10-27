@@ -1,3 +1,4 @@
+import { VehiclesDao } from './vehicles.dao.js';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Vehicle } from './vehicle.entity.js';
@@ -7,7 +8,7 @@ import { VehiclesController } from './vehicles.controller.js';
 @Module({
   imports: [TypeOrmModule.forFeature([Vehicle])],
   controllers: [VehiclesController],
-  providers: [VehiclesService],
+  providers: [VehiclesService, VehiclesDao],
   exports: [VehiclesService],
 })
 export class VehiclesModule {}

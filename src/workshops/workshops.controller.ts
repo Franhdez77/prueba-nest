@@ -1,10 +1,10 @@
+import { ParseIdPipe } from '../common/pipes/parse-id.pipe.js';
 import {
   Body,
   Controller,
   Get,
   Inject,
   Param,
-  ParseUUIDPipe,
   Patch,
   Post,
 } from '@nestjs/common';
@@ -46,7 +46,7 @@ export class WorkshopsController {
   @ApiSuccess(200, Workshop)
   @ApiErrors(400, 404)
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id', ParseIdPipe) id: number) {
     return this.workshops.findOne(id);
   }
 
@@ -56,7 +56,7 @@ export class WorkshopsController {
   @ApiErrors(400, 403, 404)
   @Patch(':id/status')
   updateStatus(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseIdPipe) id: number,
     @Body() dto: UpdateWorkshopStatusDto,
   ) {
     return this.workshops.updateStatus(id, dto.status);

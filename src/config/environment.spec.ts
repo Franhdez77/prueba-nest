@@ -31,3 +31,10 @@ describe('Environment validation', () => {
     ).toThrow('Variables de entorno inválidas: DB_PORT, DB_PASSWORD');
   });
 });
+
+it('requires complete OAuth settings and rejects insecure remote callbacks', () => {
+  expect(() => validateEnvironment({ ...valid, GITHUB_CLIENT_ID: 'client' })).toThrow('GITHUB_CLIENT_SECRET');
+  expect(() => validateEnvironment({ ...valid, GITHUB_CLIENT_ID: 'client', GITHUB_CLIENT_SECRET: 'secret', GITHUB_CALLBACK_URL: 'http://example.com/callback' })).toThrow('GITHUB_CALLBACK_URL');
+  const env = validateEnvironment({ ...valid, GITHUB_CLIENT_ID: 'client', GITHUB_CLIENT_SECRET: 'secret', GITHUB_CALLBACK_URL: 'http://localhost:3001/auth/github/callback' });
+  expect(env.GITHUB_CLIENT_ID).toBe('client');
+});

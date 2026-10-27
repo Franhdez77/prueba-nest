@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -15,11 +15,11 @@ describe('Mecánicos (e2e)', () => {
   let db: DataSource;
   let adminToken: string;
   let technicianToken: string;
-  let adminId: string;
-  let technicianId: string;
-  let mechanicId: string;
-  let secondMechanicId: string;
-  const suffix = randomUUID();
+  let adminId: number;
+  let technicianId: number;
+  let mechanicId: number;
+  let secondMechanicId: number;
+  const suffix = randomBytes(8).toString('hex');
   const emails = [
     `mechanic-admin-${suffix}@example.com`,
     `mechanic-tech-${suffix}@example.com`,
@@ -62,8 +62,8 @@ describe('Mecánicos (e2e)', () => {
     adminId = admin.id;
     technicianId = technician.id;
     const jwt = app.get(JwtService);
-    adminToken = await jwt.signAsync({ sub: adminId });
-    technicianToken = await jwt.signAsync({ sub: technicianId });
+    adminToken = await jwt.signAsync({ sub: String(adminId) });
+    technicianToken = await jwt.signAsync({ sub: String(technicianId) });
   });
 
   afterAll(async () => {
@@ -84,12 +84,12 @@ describe('Mecánicos (e2e)', () => {
       .send(payload)
       .expect(403);
     await request(app.getHttpServer())
-      .patch(`/mechanics/${randomUUID()}`)
+      .patch(`/mechanics/${999999}`)
       .set('Authorization', `Bearer ${technicianToken}`)
       .send({ status: 'INACTIVE' })
       .expect(403);
     await request(app.getHttpServer())
-      .delete(`/mechanics/${randomUUID()}`)
+      .delete(`/mechanics/${999999}`)
       .set('Authorization', `Bearer ${technicianToken}`)
       .expect(403);
   });
@@ -108,7 +108,7 @@ describe('Mecánicos (e2e)', () => {
     await request(app.getHttpServer())
       .post('/mechanics')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ ...payload, userId: randomUUID() })
+      .send({ ...payload, userId: 999999 })
       .expect(404);
     await request(app.getHttpServer())
       .post('/mechanics')
@@ -118,7 +118,7 @@ describe('Mecánicos (e2e)', () => {
     await request(app.getHttpServer())
       .post('/mechanics')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ ...payload, workshopId: randomUUID() })
+      .send({ ...payload, workshopId: 999999 })
       .expect(400);
   });
 
@@ -159,7 +159,7 @@ describe('Mecánicos (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(
-      listed.body.data.some((m: { id: string }) => m.id === mechanicId),
+      listed.body.data.some((m: { id: number }) => m.id === mechanicId),
     ).toBe(true);
     await request(app.getHttpServer())
       .get('/mechanics?status=UNKNOWN')
@@ -170,7 +170,7 @@ describe('Mecánicos (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(400);
     await request(app.getHttpServer())
-      .get(`/mechanics/${randomUUID()}`)
+      .get(`/mechanics/${999999}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(404);
   });
@@ -220,7 +220,7 @@ describe('Mecánicos (e2e)', () => {
       .send({ userId: adminId })
       .expect(409);
     await request(app.getHttpServer())
-      .patch(`/mechanics/${randomUUID()}`)
+      .patch(`/mechanics/${999999}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ specialty: 'Frenos' })
       .expect(404);
@@ -243,7 +243,7 @@ describe('Mecánicos (e2e)', () => {
       .set('Authorization', `Bearer ${technicianToken}`)
       .expect(200);
     expect(
-      filtered.body.data.some((m: { id: string }) => m.id === mechanicId),
+      filtered.body.data.some((m: { id: number }) => m.id === mechanicId),
     ).toBe(true);
     const active = await request(app.getHttpServer())
       .patch(`/mechanics/${mechanicId}`)

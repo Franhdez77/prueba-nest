@@ -1,3 +1,5 @@
+import { MaintenanceAuditsDao } from './maintenance-audits.dao.js';
+import { MaintenancesDao } from './maintenances.dao.js';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Maintenance } from './maintenance.entity.js';
@@ -8,6 +10,6 @@ import { MaintenancesController } from './maintenances.controller.js';
 @Module({
   imports: [TypeOrmModule.forFeature([Maintenance, MaintenanceAudit])],
   controllers: [MaintenancesController],
-  providers: [MaintenancesService],
+  providers: [MaintenancesService, MaintenancesDao, MaintenanceAuditsDao],
 })
 export class MaintenancesModule {}

@@ -1,49 +1,39 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Workshop } from './workshop.entity.js';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { WorkshopsDao } from './workshops.dao.js';
 import { WorkshopStatus } from './workshop-status.enum.js';
 import type { CreateWorkshopDto } from './dto/create-workshop.dto.js';
 
 @Injectable()
 export class WorkshopsService {
   constructor(
-    @InjectRepository(Workshop)
-    private readonly workshops: Repository<Workshop>,
+    @Inject(WorkshopsDao) private readonly workshops: WorkshopsDao,
   ) {}
 
   create(dto: CreateWorkshopDto) {
-    return this.workshops.save(this.workshops.create({
+    return this.workshops.create({
       name: dto.name,
       address: dto.address,
       status: WorkshopStatus.ACTIVE,
-    }));
-  }
-
-  findActive() {
-    return this.workshops.find({
-      where: { status: WorkshopStatus.ACTIVE },
-      order: { name: 'ASC', id: 'ASC' },
     });
   }
 
-  async findOne(id: string) {
-    const workshop = await this.workshops.findOneBy({ id });
+  findActive() {
+    return this.workshops.findByStatus(WorkshopStatus.ACTIVE);
+  }
+
+  async findOne(id: number) {
+    const workshop = await this.workshops.findById(id);
     if (!workshop) throw new NotFoundException('Taller no encontrado');
     return workshop;
   }
 
-  updateStatus(id: string, status: WorkshopStatus) {
+  updateStatus(id: number, status: WorkshopStatus) {
     // Lock the workshop row to coordinate status changes with maintenance assignments.
-    return this.workshops.manager.transaction(async (manager) => {
-      const repository = manager.getRepository(Workshop);
-      const workshop = await repository.findOne({
-        where: { id },
-        lock: { mode: 'pessimistic_write' },
-      });
+    return this.workshops.transaction(async (dao) => {
+      const workshop = await dao.findLocked(id);
       if (!workshop) throw new NotFoundException('Taller no encontrado');
       workshop.status = status;
-      return repository.save(workshop);
+      return dao.save(workshop);
     });
   }
 }

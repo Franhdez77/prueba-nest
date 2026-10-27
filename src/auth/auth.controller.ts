@@ -29,14 +29,15 @@ import type { PublicUser } from '../users/user.entity.js';
 export class AuthController {
   constructor(@Inject(AuthService) private readonly auth: AuthService) {}
 
-  @Public()
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Registrar un técnico',
+    summary: 'Registrar un técnico (ADMIN)',
     description:
-      'Registro público. No acepta el campo role; siempre crea TECHNICIAN.',
+      'Solo ADMIN. No acepta el campo role; siempre crea TECHNICIAN.',
   })
   @ApiSuccess(201, UserResponseDto)
-  @ApiErrors(400, 409)
+  @ApiErrors(400, 401, 403, 409)
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.auth.register(dto);

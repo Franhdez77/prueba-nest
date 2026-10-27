@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Inject, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { ParseIdPipe } from '../common/pipes/parse-id.pipe.js';
+import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
@@ -49,7 +50,7 @@ export class MaintenancesController {
   @ApiSuccess(200, Maintenance, true)
   @ApiErrors(400, 404)
   @Get('vehicle/:vehicleId/history')
-  history(@Param('vehicleId', ParseUUIDPipe) vehicleId: string, @CurrentUser() user: PublicUser) {
+  history(@Param('vehicleId', ParseIdPipe) vehicleId: number, @CurrentUser() user: PublicUser) {
     return this.maintenances.history(vehicleId, user);
   }
 
@@ -57,7 +58,7 @@ export class MaintenancesController {
   @ApiSuccess(200, Maintenance, true)
   @ApiErrors(400, 403, 404)
   @Get('mechanic/:mechanicId')
-  byMechanic(@Param('mechanicId', ParseUUIDPipe) mechanicId: string, @CurrentUser() user: PublicUser) {
+  byMechanic(@Param('mechanicId', ParseIdPipe) mechanicId: number, @CurrentUser() user: PublicUser) {
     return this.maintenances.byMechanic(mechanicId, user);
   }
 
@@ -66,7 +67,7 @@ export class MaintenancesController {
   @ApiSuccess(200, MaintenanceAudit, true)
   @ApiErrors(400, 403, 404)
   @Get(':id/audits')
-  audits(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) {
+  audits(@Param('id', ParseIdPipe) id: number, @CurrentUser() user: PublicUser) {
     return this.maintenances.audits(id, user);
   }
 
@@ -74,7 +75,7 @@ export class MaintenancesController {
   @ApiSuccess(200, Maintenance)
   @ApiErrors(400, 403, 404)
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: PublicUser) {
+  findOne(@Param('id', ParseIdPipe) id: number, @CurrentUser() user: PublicUser) {
     return this.maintenances.findOne(id, user);
   }
 
@@ -82,7 +83,7 @@ export class MaintenancesController {
   @ApiSuccess(200, Maintenance)
   @ApiErrors(400, 403, 404, 409)
   @Patch(':id/status')
-  updateStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateMaintenanceStatusDto, @CurrentUser() user: PublicUser) {
+  updateStatus(@Param('id', ParseIdPipe) id: number, @Body() dto: UpdateMaintenanceStatusDto, @CurrentUser() user: PublicUser) {
     return this.maintenances.updateStatus(id, dto, user);
   }
 }

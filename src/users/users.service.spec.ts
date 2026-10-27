@@ -1,3 +1,4 @@
+import { UsersDao } from './users.dao.js';
 import { jest } from '@jest/globals';
 import { ConflictException } from '@nestjs/common';
 import { QueryFailedError, type Repository } from 'typeorm';
@@ -10,7 +11,7 @@ describe('UsersService', () => {
     create: jest.fn<(data: Partial<User>) => User>(),
     save: jest.fn<(user: User) => Promise<User>>(),
   };
-  const service = new UsersService(repository as unknown as Repository<User>);
+  const service = new UsersService(new UsersDao(repository as unknown as Repository<User>));
   beforeEach(() => {
     repository.create.mockReset().mockImplementation(data => Object.assign(new User(), data));
     repository.save.mockReset().mockImplementation(async user => user);

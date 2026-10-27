@@ -6,7 +6,7 @@ export class CreateUsers1793100000000 implements MigrationInterface {
       `CREATE TYPE "user_role" AS ENUM ('ADMIN', 'TECHNICIAN')`,
     );
     await queryRunner.query(`CREATE TABLE "users" (
-      "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+      "id" SERIAL NOT NULL,
       "name" varchar(100) NOT NULL,
       "email" varchar(254) NOT NULL,
       "password_hash" text NOT NULL,

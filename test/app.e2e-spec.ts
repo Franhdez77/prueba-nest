@@ -38,7 +38,7 @@ describe('Swagger (e2e)', () => {
       in: 'header',
     });
     expect(body.paths['/auth/login'].post.security ?? []).toEqual([]);
-    expect(body.paths['/auth/register'].post.security ?? []).toEqual([]);
+    expect(body.paths['/auth/register'].post.security).toEqual([{ bearer: [] }]);
     expect(body.paths['/auth/me'].get.security).toEqual([{ bearer: [] }]);
     expect(body.paths['/integrations/status'].get.security).toEqual([
       { 'api-key': [] },

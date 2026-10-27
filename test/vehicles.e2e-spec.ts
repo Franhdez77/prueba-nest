@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -16,8 +16,8 @@ describe('Vehículos (e2e)', () => {
   let db: DataSource;
   let adminToken: string;
   let technicianToken: string;
-  let vehicleId: string;
-  const suffix = randomUUID();
+  let vehicleId: number;
+  const suffix = randomBytes(8).toString('hex');
   const plate = `TEST-${suffix.slice(0, 8).toUpperCase()}`;
   const payload = {
     plate: plate.toLowerCase(),
@@ -58,8 +58,8 @@ describe('Vehículos (e2e)', () => {
         role: Role.TECHNICIAN,
       }),
     );
-    adminToken = await jwt.signAsync({ sub: admin.id });
-    technicianToken = await jwt.signAsync({ sub: technician.id });
+    adminToken = await jwt.signAsync({ sub: String(admin.id) });
+    technicianToken = await jwt.signAsync({ sub: String(technician.id) });
   });
 
   afterAll(async () => {
@@ -79,12 +79,12 @@ describe('Vehículos (e2e)', () => {
       .send(payload)
       .expect(403);
     await request(app.getHttpServer())
-      .patch(`/vehicles/${randomUUID()}`)
+      .patch(`/vehicles/${999999}`)
       .set('Authorization', `Bearer ${technicianToken}`)
       .send({ model: 'Otro' })
       .expect(403);
     await request(app.getHttpServer())
-      .delete(`/vehicles/${randomUUID()}`)
+      .delete(`/vehicles/${999999}`)
       .set('Authorization', `Bearer ${technicianToken}`)
       .expect(403);
   });
@@ -134,7 +134,7 @@ describe('Vehículos (e2e)', () => {
       .set('Authorization', `Bearer ${technicianToken}`)
       .expect(200);
     expect(
-      listed.body.data.some((v: { id: string }) => v.id === vehicleId),
+      listed.body.data.some((v: { id: number }) => v.id === vehicleId),
     ).toBe(true);
     await request(app.getHttpServer())
       .get('/vehicles?status=UNKNOWN')
@@ -145,7 +145,7 @@ describe('Vehículos (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(400);
     await request(app.getHttpServer())
-      .get(`/vehicles/${randomUUID()}`)
+      .get(`/vehicles/${999999}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(404);
     await request(app.getHttpServer())

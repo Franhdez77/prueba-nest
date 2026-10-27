@@ -4,7 +4,7 @@ export class CreateWorkshops1793100004000 implements MigrationInterface {
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`CREATE TYPE "workshop_status" AS ENUM ('ACTIVE', 'INACTIVE')`);
     await queryRunner.query(`CREATE TABLE "workshops" (
-      "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+      "id" SERIAL NOT NULL,
       "name" varchar(100) NOT NULL,
       "address" varchar(255) NOT NULL,
       "status" "workshop_status" NOT NULL DEFAULT 'ACTIVE',

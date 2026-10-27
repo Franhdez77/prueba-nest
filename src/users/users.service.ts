@@ -1,50 +1,28 @@
-import { ConflictException, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
-import { User } from './user.entity.js';
+import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { UsersDao } from './users.dao.js';
 import { Role } from './role.enum.js';
 
 @Injectable()
 export class UsersService {
-  constructor(
-    @InjectRepository(User) private readonly users: Repository<User>,
-  ) {}
+  constructor(@Inject(UsersDao) private readonly users: UsersDao) {}
 
-  async create(
-    name: string,
-    email: string,
-    passwordHash: string,
-    role = Role.TECHNICIAN,
-  ) {
-    try {
-      return await this.users.save(
-        this.users.create({
-          name,
-          email: email.trim().toLowerCase(),
-          passwordHash,
-          role,
-        }),
-      );
-    } catch (error) {
-      if (
-        error instanceof QueryFailedError &&
-        (error.driverError as { code?: string }).code === '23505'
-      ) {
-        throw new ConflictException('El correo ya está registrado');
+  create(name: string, email: string, passwordHash: string, role = Role.TECHNICIAN) {
+    return this.users.create({ name, email: email.trim().toLowerCase(), passwordHash, role });
+  }
+
+  linkGithub(userId: number, githubId: string) {
+    return this.users.transaction(async dao => {
+      const user = await dao.findLockedWithGithub(userId);
+      if (!user) throw new UnauthorizedException('FleetCore account no longer exists');
+      if (user.githubId && user.githubId !== githubId) {
+        throw new ConflictException('This FleetCore account already has a different GitHub account linked');
       }
-      throw error;
-    }
+      user.githubId = githubId;
+      return dao.saveGithubLink(user);
+    });
   }
 
-  findById(id: string) {
-    return this.users.findOneBy({ id });
-  }
-
-  findForLogin(email: string) {
-    return this.users
-      .createQueryBuilder('user')
-      .addSelect('user.passwordHash')
-      .where('user.email = :email', { email: email.trim().toLowerCase() })
-      .getOne();
-  }
+  findByGithubId(githubId: string) { return this.users.findByGithubId(githubId); }
+  findById(id: number) { return this.users.findById(id); }
+  findForLogin(email: string) { return this.users.findForLogin(email.trim().toLowerCase()); }
 }

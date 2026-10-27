@@ -6,12 +6,12 @@ export class CreateMechanics1793100002000 implements MigrationInterface {
       `CREATE TYPE "mechanic_status" AS ENUM ('ACTIVE', 'INACTIVE')`,
     );
     await queryRunner.query(`CREATE TABLE "mechanics" (
-      "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+      "id" SERIAL NOT NULL,
       "name" varchar(100) NOT NULL,
       "email" varchar(254) NOT NULL,
       "specialty" varchar(150) NOT NULL,
       "status" "mechanic_status" NOT NULL DEFAULT 'ACTIVE',
-      "user_id" uuid,
+      "user_id" integer,
       "created_at" timestamptz NOT NULL DEFAULT now(),
       "updated_at" timestamptz NOT NULL DEFAULT now(),
       CONSTRAINT "PK_mechanics" PRIMARY KEY ("id"),

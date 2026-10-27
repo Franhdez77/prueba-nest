@@ -8,6 +8,9 @@ export interface Environment {
   DB_DATABASE: string;
   JWT_SECRET: string;
   API_KEY: string;
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
+  GITHUB_CALLBACK_URL?: string;
 }
 
 export function validateEnvironment(config: Record<string, unknown>): Environment {
@@ -39,6 +42,17 @@ export function validateEnvironment(config: Record<string, unknown>): Environmen
     JWT_SECRET: text('JWT_SECRET'),
     API_KEY: text('API_KEY'),
   };
+  const githubFields = ['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'GITHUB_CALLBACK_URL'] as const;
+  if (githubFields.some(field => typeof config[field] === 'string' && String(config[field]).trim())) {
+    for (const field of githubFields) env[field] = text(field);
+    try {
+      const callback = new URL(env.GITHUB_CALLBACK_URL!);
+      if (callback.username || callback.password || callback.search || callback.hash ||
+          (callback.protocol !== 'https:' && !(callback.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(callback.hostname)))) {
+        invalid.push('GITHUB_CALLBACK_URL');
+      }
+    } catch { invalid.push('GITHUB_CALLBACK_URL'); }
+  }
   if (env.JWT_SECRET && env.JWT_SECRET.length < 32) invalid.push('JWT_SECRET');
   // Report variable names only to avoid exposing credentials in startup errors.
   if (invalid.length) throw new Error(`Variables de entorno inválidas: ${invalid.join(', ')}`);

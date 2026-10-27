@@ -1,3 +1,4 @@
+import { MechanicsDao } from './mechanics.dao.js';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Mechanic } from './mechanic.entity.js';
@@ -7,7 +8,7 @@ import { MechanicsService } from './mechanics.service.js';
 @Module({
   imports: [TypeOrmModule.forFeature([Mechanic])],
   controllers: [MechanicsController],
-  providers: [MechanicsService],
+  providers: [MechanicsService, MechanicsDao],
   exports: [MechanicsService],
 })
 export class MechanicsModule {}
