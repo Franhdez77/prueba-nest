@@ -18,6 +18,8 @@ describe('Autenticación y roles (e2e)', () => {
   let jwt: JwtService;
   let technicianId: string;
   let token: string;
+  let adminToken: string;
+  const registeredEmails: string[] = [];
   let adminId: string;
   const email = `auth-${randomUUID()}@example.com`;
   const adminEmail = `admin-${randomUUID()}@example.com`;
@@ -38,6 +40,7 @@ describe('Autenticación y roles (e2e)', () => {
     if (db) {
       await db.getRepository(User).delete({ email });
       await db.getRepository(User).delete({ email: adminEmail });
+      for (const email of registeredEmails) await db.getRepository(User).delete({ email });
     }
     await app?.close();
   });
@@ -145,8 +148,26 @@ describe('Autenticación y roles (e2e)', () => {
       .post('/vehicles').send({ plate: 'INVALID', mileage: -1 })
       .set('Authorization', `Bearer ${res.body.data.accessToken}`)
       .expect(400);
+    adminToken = res.body.data.accessToken;
     expect(adminId).toBeTruthy();
   });
+  it('permite a ADMIN registrar ambos roles y rechaza escaladas de privilegios', async () => {
+    const input = { name: 'Usuario prueba', email: `registered-${randomUUID()}@example.com`, password, role: 'ADMIN' };
+    await request(app.getHttpServer()).post('/auth/users').send(input).expect(401);
+    await request(app.getHttpServer()).post('/auth/users').set('Authorization', `Bearer ${token}`).send(input).expect(403);
+    await request(app.getHttpServer()).post('/auth/users').set('Authorization', `Bearer ${adminToken}`).send({ ...input, role: 'UNKNOWN' }).expect(400);
+    for (const role of ['ADMIN', 'TECHNICIAN']) {
+      const email = `registered-${randomUUID()}@example.com`;
+      registeredEmails.push(email);
+      const created = await request(app.getHttpServer()).post('/auth/users').set('Authorization', `Bearer ${adminToken}`).send({ ...input, email, role }).expect(201);
+      expect(created.body.data.role).toBe(role);
+      expect(created.body.data.passwordHash).toBeUndefined();
+      const login = await request(app.getHttpServer()).post('/auth/login').send({ email, password }).expect(200);
+      expect(login.body.data.user.role).toBe(role);
+      await request(app.getHttpServer()).post('/auth/users').set('Authorization', `Bearer ${adminToken}`).send({ ...input, email, role }).expect(409);
+    }
+  });
+
   it('exige API Key y no admite JWT como sustituto en integraciones', async () => {
     await request(app.getHttpServer()).get('/integrations/status').expect(401);
     await request(app.getHttpServer())

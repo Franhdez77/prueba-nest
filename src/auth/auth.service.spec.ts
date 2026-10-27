@@ -39,6 +39,18 @@ describe('AuthService', () => {
     expect(users.create.mock.calls[0]).toHaveLength(3);
   });
 
+  it('registra ADMIN o TECHNICIAN desde el flujo administrativo y omite el hash', async () => {
+    users.create.mockImplementation(async (name, email, passwordHash, role) => Object.assign(new User(), { ...stored, name, email, passwordHash, role }));
+    for (const role of [Role.ADMIN, Role.TECHNICIAN]) {
+      const result = await service.registerUser({ name: 'Usuario', email: stored.email, password: 'ClaveSegura123!', role });
+      expect(result.role).toBe(role);
+      expect(result).not.toHaveProperty('passwordHash');
+      const call = users.create.mock.calls.at(-1)!;
+      expect(call[3]).toBe(role);
+      expect(await verifyPassword(call[2], 'ClaveSegura123!')).toBe(true);
+    }
+  });
+
   it('conserva el conflicto de correo duplicado', async () => {
     users.create.mockRejectedValue(new ConflictException('El correo ya está registrado'));
     await expect(service.register({ name: 'Técnico', email: stored.email, password: 'ClaveSegura123!' })).rejects.toBeInstanceOf(ConflictException);

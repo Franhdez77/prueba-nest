@@ -1,3 +1,6 @@
+import { Roles } from './decorators/roles.decorator.js';
+import { Role } from '../users/role.enum.js';
+import { RegisterUserDto } from './dto/register-user.dto.js';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiErrors, ApiSuccess } from '../docs/api-responses.decorator.js';
 import {
@@ -37,6 +40,19 @@ export class AuthController {
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.auth.register(dto);
+  }
+
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Registrar usuario con rol (ADMIN)',
+    description: 'Permite a un administrador registrar cuentas ADMIN o TECHNICIAN.',
+  })
+  @ApiSuccess(201, UserResponseDto)
+  @ApiErrors(400, 401, 403, 409)
+  @Post('users')
+  registerUser(@Body() dto: RegisterUserDto) {
+    return this.auth.registerUser(dto);
   }
 
   @Public()

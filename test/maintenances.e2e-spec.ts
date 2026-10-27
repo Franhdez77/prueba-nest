@@ -228,12 +228,26 @@ describe('Mantenimientos (e2e)', () => {
     expect(await db.getRepository(MaintenanceAudit).countBy({ maintenanceId: scheduled.id })).toBe(1);
   });
 
+  it('conserva historial y auditoría al inactivar el vehículo y el mecánico', async () => {
+    const record = (await send({ ...await payload(16), mechanicId: otherMechanic.id }).expect(201)).body.data;
+    await change(record.id, { status: 'IN_PROGRESS' }, otherToken).expect(200);
+    await change(record.id, { status: 'COMPLETED', workPerformed: 'Revisión completa', finalCost: 0, finishedAt: new Date().toISOString(), finalMileage: 45000 }, otherToken).expect(200);
+    await request(app.getHttpServer()).delete(`/vehicles/${record.vehicleId}`).set('Authorization', `Bearer ${adminToken}`).expect(200);
+    await request(app.getHttpServer()).delete(`/mechanics/${otherMechanic.id}`).set('Authorization', `Bearer ${adminToken}`).expect(200);
+    const history = await get(`/maintenances/vehicle/${record.vehicleId}/history`).expect(200);
+    expect(history.body.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: record.id, status: 'COMPLETED', vehicle: expect.objectContaining({ status: 'INACTIVE' }), mechanic: expect.objectContaining({ status: 'INACTIVE' }) }),
+    ]));
+    const audits = await get(`/maintenances/${record.id}/audits`).expect(200);
+    expect(audits.body.data.map((entry: { toStatus: string }) => entry.toStatus)).toEqual(['SCHEDULED', 'IN_PROGRESS', 'COMPLETED']);
+  });
+
   it('filtra activos e historial y valida identificadores y filtros', async () => {
     const active = await get('/maintenances?active=true').expect(200);
     expect(active.body.data.every((m: { status: string }) => ['SCHEDULED', 'IN_PROGRESS'].includes(m.status))).toBe(true);
     const closed = await get('/maintenances?active=false&type=PREVENTIVE').expect(200);
     expect(closed.body.data.every((m: { status: string }) => ['COMPLETED', 'CANCELLED'].includes(m.status))).toBe(true);
-    await get('/maintenances?active=incorrecto').expect(400);
+    for (const value of ['incorrecto', '1', '0']) await get(`/maintenances?active=${value}`).expect(400);
     await get('/maintenances/incorrecto').expect(400);
     await get(`/maintenances/${randomUUID()}`).expect(404);
     await get(`/maintenances/vehicle/${randomUUID()}/history`).expect(404);

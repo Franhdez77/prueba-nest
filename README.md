@@ -11,6 +11,8 @@ y auditoría de creación y cambios de estado.
 Pendientes de entrega: dump SQL, evidencias de Postman o Swagger y publicación
 del repositorio actualizado. Nombre y clan del coder: pendientes.
 
+La matriz de criterios y resultados está en [Revisión final](docs/revision-final.md).
+
 ## Ejecución con Docker
 
 Requiere Docker y Docker Compose. No necesitas instalar Node.js ni PostgreSQL
@@ -117,6 +119,7 @@ La contraseña de las tres cuentas nuevas es `FleetCore123!`.
 | Método | Ruta | Acceso |
 | --- | --- | --- |
 | POST | `/auth/register` | Público; registra `TECHNICIAN` |
+| POST | `/auth/users` | JWT y ADMIN; registra cuentas ADMIN o TECHNICIAN |
 | POST | `/auth/login` | Público; devuelve JWT válido por una hora |
 | GET | `/auth/me` | JWT; consulta del usuario actual |
 
@@ -132,8 +135,9 @@ Ejemplo de registro:
 
 El login recibe `email` y `password`. Copia `data.accessToken` y envíalo como
 `Authorization: Bearer <token>`. Las contraseñas no se devuelven en las respuestas.
-El registro público no acepta un campo `role`; el administrador de prueba lo crea
-el seeder. Las operaciones administrativas comprueban el rol `ADMIN` mediante
+El registro público no acepta un campo `role`; el primer administrador de prueba
+lo crea el seeder. Después, un administrador puede registrar cuentas de cualquiera
+de los dos roles con `POST /auth/users`, enviando los campos del registro y `role`. Las operaciones administrativas comprueban el rol `ADMIN` mediante
 `@Roles()` y `RolesGuard`.
 
 ## Integraciones externas
@@ -364,7 +368,7 @@ exigidas como entregable. La cobertura se obtiene con `npm run test:cov`.
 npm run test:cov
 ```
 
-La suite tiene 100 pruebas unitarias y se ejecuta sin PostgreSQL. Incluye
+La suite tiene 101 pruebas unitarias y se ejecuta sin PostgreSQL. Incluye
 registro y login con hashing y JWT reales, guards de autenticación, roles y API
 Key, permisos por asignación, reservas, estados, cierre, auditorías y protección
 de datos de vehículos y mecánicos. La persistencia se sustituye por dobles de
@@ -375,10 +379,10 @@ la suite HTTP separada.
 
 | Métrica | Cobertura |
 | --- | --- |
-| Sentencias | 61,40 % |
+| Sentencias | 61,33 % |
 | Ramas | 43,01 % |
-| Funciones | 55,15 % |
-| Líneas | 67,07 % |
+| Funciones | 55,08 % |
+| Líneas | 66,95 % |
 
 Jest exige al menos 41 % en cada métrica y falla si se incumple ese umbral.
 El alcance incluye controladores, guards y servicios; las exclusiones de archivos

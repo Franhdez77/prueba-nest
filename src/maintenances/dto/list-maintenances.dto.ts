@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBooleanString, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsIn, IsEnum, IsOptional, IsUUID } from 'class-validator';
 import { MaintenanceStatus, MaintenanceType } from '../maintenance.enums.js';
 
 export class ListMaintenancesDto {
@@ -25,6 +25,6 @@ export class ListMaintenancesDto {
 
   @ApiPropertyOptional({ enum: ['true', 'false'], description: 'true: SCHEDULED o IN_PROGRESS; false: estados finales.' })
   @IsOptional()
-  @IsBooleanString()
+  @IsIn(['true', 'false'])
   active?: string;
 }

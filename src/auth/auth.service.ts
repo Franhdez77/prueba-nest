@@ -1,3 +1,4 @@
+import type { RegisterUserDto } from './dto/register-user.dto.js';
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { hashPassword, verifyPassword } from './password.js';
@@ -17,6 +18,13 @@ export class AuthService {
     const passwordHash = await hashPassword(dto.password);
     return publicUser(
       await this.users.create(dto.name, dto.email, passwordHash),
+    );
+  }
+
+  async registerUser(dto: RegisterUserDto) {
+    const passwordHash = await hashPassword(dto.password);
+    return publicUser(
+      await this.users.create(dto.name, dto.email, passwordHash, dto.role),
     );
   }
 
