@@ -356,5 +356,38 @@ necesitan PostgreSQL. Las pruebas HTTP usan `fetch` nativo y requieren una base 
 pruebas configurada y migraciones aplicadas; eliminan solo sus registros.
 
 Las pruebas Jest no sustituyen las evidencias de Postman o capturas de Swagger
-exigidas como entregable. La cobertura se obtiene con `npm run test:cov`; el punto
-extra exige superar 40 % y solo cuenta cuando funciona lo obligatorio.
+exigidas como entregable. La cobertura se obtiene con `npm run test:cov`.
+
+### Cobertura de pruebas unitarias
+
+```bash
+npm run test:cov
+```
+
+La suite tiene 100 pruebas unitarias y se ejecuta sin PostgreSQL. Incluye
+registro y login con hashing y JWT reales, guards de autenticación, roles y API
+Key, permisos por asignación, reservas, estados, cierre, auditorías y protección
+de datos de vehículos y mecánicos. La persistencia se sustituye por dobles de
+prueba; la concurrencia real y las transacciones de PostgreSQL se comprueban en
+la suite HTTP separada.
+
+Última medición:
+
+| Métrica | Cobertura |
+| --- | --- |
+| Sentencias | 61,40 % |
+| Ramas | 43,01 % |
+| Funciones | 55,15 % |
+| Líneas | 67,07 % |
+
+Jest exige al menos 41 % en cada métrica y falla si se incumple ese umbral.
+El alcance incluye controladores, guards y servicios; las exclusiones de archivos
+de módulos, entidades, DTO, Swagger, migraciones y seeder se especifican en
+`jest.config.cjs`. Las pruebas HTTP no se suman a estas cifras.
+
+El informe HTML se genera en `coverage/lcov-report/index.html` y el resumen
+legible por herramientas en `coverage/coverage-summary.json`. Ambos se regeneran
+con el comando y están excluidos de Git.
+
+El extra de Jest requiere cobertura superior al 40 % y solo se califica cuando
+funcionan los requisitos obligatorios.

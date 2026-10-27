@@ -16,4 +16,13 @@ module.exports = {
     '!.test-dist/src/database/migrations/**',
   ],
   coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'json-summary'],
+  coverageThreshold: {
+    global: {
+      statements: 41,
+      branches: 41,
+      functions: 41,
+      lines: 41,
+    },
+  },
 };
