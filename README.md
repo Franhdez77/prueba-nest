@@ -8,7 +8,7 @@ status transitions, vehicle history, and maintenance audit records.
 ## Coder information
 
 - **Name:** Francisco Hernandez
-- **Clan:** Node/Nest AN
+- **Clan:** Node/Nest AM
 - **Repository:** https://github.com/Franhdez77/prueba-nest
 
 ## 1. Get the project
@@ -112,7 +112,8 @@ CREATE DATABASE fleetcore OWNER fleetcore;
 ```
 
 Use the same database credentials in `.env`. The password above is only a local
-example. The database must exist before running migrations.
+example. The database must exist before running migrations. Initialize this schema in an
+empty database; migrations do not convert existing identifier types.
 
 Apply migrations, load sample data, and start the development server:
 
@@ -199,6 +200,54 @@ For direct HTTP clients, send `Authorization: Bearer <token>`.
 JWTs expire after one hour. Passwords and password hashes are never included in
 API responses.
 
+### Sign in with GitHub (optional OAuth 2.0)
+
+1. In GitHub, go to **Settings > Developer settings > OAuth Apps > New OAuth App**.
+2. Use `FleetCore` as the application name and `http://localhost:3001` as the
+   Homepage URL. Set the Authorization callback URL to
+   `http://localhost:3001/auth/github/callback`. Replace the port if necessary.
+3. Register the application, copy its Client ID, and generate a Client Secret.
+   Follow the [official GitHub setup instructions](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app).
+4. Add these values to your local `.env`; never commit the real secret:
+
+   ```dotenv
+   GITHUB_CLIENT_ID=your-client-id
+   GITHUB_CLIENT_SECRET=your-client-secret
+   GITHUB_CALLBACK_URL=http://localhost:3001/auth/github/callback
+   ```
+
+5. For Docker, run `docker compose up --build -d --wait` again. It applies the
+   new migration and loads the OAuth settings. For local execution, run
+   `npm run migration:run` and restart the API.
+6. Have an administrator create the user's FleetCore account through
+   `POST /auth/users`. OAuth does not register users.
+7. Sign in to FleetCore with the account's email and password. In `/demo`, click
+   **Vincular GitHub**, then authorize GitHub. The callback links that GitHub ID
+   to the authenticated FleetCore account and returns `data.accessToken`.
+8. For later sign-ins, open `/auth/github` or click **GitHub** on the login page.
+   Only already-linked GitHub identities can sign in. Copy `data.accessToken`
+   into Swagger or the demo page's token field to access the same account.
+
+For Swagger, first authorize with the existing FleetCore JWT, then call
+`POST /auth/github/link` and open `data.authorizationUrl` in the same browser.
+The temporary HttpOnly state cookie carries the authenticated user's ID; the
+callback never accepts a user ID or role from query parameters.
+
+The API uses the authorization-code flow with PKCE and a temporary state cookie.
+The callback returns a FleetCore JWT valid for one hour. GitHub access tokens
+and passwords are never stored or returned. Use HTTPS outside local development.
+
+OAuth never creates users and never links by email. Unknown GitHub identities
+receive `401`. A GitHub ID can belong to only one FleetCore account, and an
+existing link cannot be replaced with a different GitHub identity (`409`).
+Linking preserves the user's role, password, mechanic profile and assignments.
+Existing links from earlier versions remain valid; no users are deleted.
+
+All three OAuth settings are optional together. Without them, password login
+continues to work and GitHub sign-in returns `503`. A denied authorization,
+missing or expired state, or invalid provider response does not issue a JWT.
+Real provider sign-in requires your own GitHub OAuth application credentials.
+
 ### Register accounts and link mechanics
 
 `POST /auth/register` is public and creates a `TECHNICIAN` account:
@@ -216,7 +265,8 @@ The public endpoint does not accept `role`. An authenticated administrator can u
 The seeder creates the initial administrator account.
 
 A technician's user account stores login credentials. Its mechanic profile stores
-work-related information. The optional, one-to-one link is `Mechanic.userId`.
+work-related information. The optional, one-to-one link is `Mechanic.userId`. All database identifiers are
+auto-incrementing integers starting at 1; send related IDs as JSON numbers.
 Creating an account does not automatically create a mechanic profile: an
 administrator links them through `POST /mechanics` or `PATCH /mechanics/:id`.
 An inactive mechanic cannot receive a new assignment or start a scheduled job;
@@ -238,7 +288,7 @@ in progress.
    `AVAILABLE` and receives the final mileage.
 7. Check the vehicle history and, as an administrator, the maintenance audit trail.
 
-Example scheduling request; replace the ID placeholders with existing resource IDs:
+Example scheduling request; use existing resource IDs:
 
 ```json
 {
@@ -247,9 +297,9 @@ Example scheduling request; replace the ID placeholders with existing resource I
   "mileage": 45000,
   "scheduledStart": "2026-11-01T07:30:00-05:00",
   "scheduledEnd": "2026-11-01T09:00:00-05:00",
-  "vehicleId": "VEHICLE_UUID",
-  "mechanicId": "MECHANIC_UUID",
-  "workshopId": "WORKSHOP_UUID"
+  "vehicleId": 1,
+  "mechanicId": 2,
+  "workshopId": 1
 }
 ```
 
@@ -290,13 +340,13 @@ business endpoints.
 
 ### Endpoint reference
 
-All routes below require JWT except public registration/login and the integration
+All routes below require JWT except public registration/login/GitHub OAuth and the integration
 route, which uses API Key. Only administrators can modify vehicles, mechanics,
 and workshops or schedule maintenance.
 
 | Resource | Endpoints |
 | --- | --- |
-| Authentication | `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/users` (ADMIN) |
+| Authentication | `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/users` (ADMIN), `GET /auth/github`, `POST /auth/github/link` (JWT), `GET /auth/github/callback` |
 | Vehicles | `POST /vehicles`, `GET /vehicles`, `GET /vehicles/:id`, `GET /vehicles/plate/:plate`, `PATCH /vehicles/:id`, `DELETE /vehicles/:id` |
 | Mechanics | `POST /mechanics`, `GET /mechanics`, `GET /mechanics/:id`, `PATCH /mechanics/:id`, `DELETE /mechanics/:id` |
 | Workshops | `POST /workshops`, `GET /workshops`, `GET /workshops/:id`, `PATCH /workshops/:id/status` |
@@ -321,21 +371,21 @@ npm test
 npm run test:cov
 ```
 
-The 101 unit tests run without PostgreSQL. The latest measured coverage is:
+The 125 unit tests run without PostgreSQL. The latest measured coverage is:
 
 | Metric | Coverage |
 | --- | ---: |
-| Statements | 61.33% |
-| Branches | 43.01% |
-| Functions | 55.08% |
-| Lines | 66.95% |
+| Statements | 63.40% |
+| Branches | 45.04% |
+| Functions | 58.08% |
+| Lines | 69.05% |
 
 Jest enforces at least 41% in all four metrics. The HTML report is generated at
 `coverage/lcov-report/index.html`, with a JSON summary at
 `coverage/coverage-summary.json`. Coverage exclusions are declared in
 `jest.config.cjs`; HTTP tests are not included in these unit coverage figures.
 
-To run the 39 HTTP tests, configure a separate PostgreSQL test database in the
+To run the 45 HTTP tests, configure a separate PostgreSQL test database in the
 environment and apply migrations before running:
 
 ```bash
